@@ -21,7 +21,7 @@ library(optimr)
 #     Sigma_{ij} = exp(-|i-j|/phi),
 M <- 100
 n <- 1000
-phi <- 0.2
+phi <- 1
 mu <- rep(0,n)
 Sigma <- matrix(NA, nrow=n, ncol=n)
 
@@ -32,7 +32,7 @@ for(i in 1:nrow(Sigma)){
   }
 }
 
-#simulating 100 draws
+#simulating 100 draws, through R function
 sim_mvnorm <- mvrnorm(M, mu, Sigma)
 
 #by hand
@@ -53,7 +53,8 @@ mv_n <- mu + L%*%X
 #   I will evaluate the log pdf and then convert it back
 #   https://www.cs.cmu.edu/~epxing/Class/10701-08s/recitation/gaussian.pdf
 #   mu is 0 in this case so I will take it out
-log_pdf <- -0.5*n*log(2*pi) - 0.5*log(det(Sigma)) - 0.5*t(mv_n)%*%solve(Sigma)%*%(mv_n)
+X1 <- mv_n[,1]
+log_pdf <- -0.5*n*log(2*pi) - 0.5*log(det(Sigma)) - 0.5*t(X1)%*%solve(Sigma)%*%(X1)
 pdf <- exp(log_pdf)
 
 mvrnorm
@@ -61,6 +62,8 @@ mvrnorm
 ### 1b) Plot the pdf values for the samples. Report the wall time for the simulation algorithm
 ###    and the evaluation of the pdf (jointly) using, say, system.time.
 ###
+
+#plot a histogram of the values of pdf
 
 ###
 ### 1c) Now that you have successfully implemented this for n = 1000, repeat the exercise 
@@ -213,6 +216,15 @@ plot(x= m,y= exp_val_vec)
 
 #     LOOK AT ASSIGNMENT FOR C
 
+alg_1 <- function(mat){
+  solve(mat)
+}
+
+alg_2 <- function(mat){
+  
+}
+
+
 
 ###
 ### Problem 4
@@ -240,7 +252,30 @@ for(i in 1:4){
 ###
 ### Problem 5
 ###
-# Let X1; : : : ;Xn iid from Gamma(alpha; beta) distribution. Consider Bayesian
+# Let X1,...,Xn iid from Gamma(alpha; beta) distribution. Consider Bayesian
 # inference for alpha; beta with prior distributions a~ N(0; 3), beta~ N(0; 3). Use a
 # Laplace approximation (as discussed in class) to approximate the posterior
 # expectation of alpha, beta.
+
+set.seed(123)
+#dat <- load()
+
+# Find unnormalized log posterior of the model
+#    given parameter vector p and vector of data points y
+
+model <- function(p, y) {
+  log_lik <- sum(dgamma(y, p["alpha"], p["beta"], log = T))  # the log likelihood
+  log_post <- log_lik + dnorm(p["alpha"], 0, 3, log = T) + dnorm(p["beta"],
+                                                                 0, 3, log = T)
+  log_post
+}
+
+#give a set of initial values
+inits <- c(alpha = 0, beta = 0)
+
+#fnscale is -1 so that it maximizes
+opt_fit <- optim(inits, model, control = list(fnscale = -1), y = y)
+
+#posterior estimations
+post_est <- opt_fit$par
+post_est
