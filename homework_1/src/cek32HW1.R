@@ -10,6 +10,7 @@ library(MASS)
 library(mvtnorm)
 library(tictoc)
 library(optimr)
+library(ggplot2)
 
 ###
 ### Problem 1
@@ -21,14 +22,14 @@ library(optimr)
 #     Sigma_{ij} = exp(-|i-j|/phi),
 M <- 100
 n <- 1000
-phi <- 1
+phi <- 0.9
 mu <- rep(0,n)
 Sigma <- matrix(NA, nrow=n, ncol=n)
 
 #creating covariance matrix
 for(i in 1:nrow(Sigma)){
   for(j in 1:ncol(Sigma)){
-    Sigma[i,j] <- exp(-abs(i-j)/phi)
+    Sigma[i,j] <- 2*exp(-abs(i-j)/phi)
   }
 }
 
@@ -54,6 +55,7 @@ mv_n <- mu + L%*%X
 #   https://www.cs.cmu.edu/~epxing/Class/10701-08s/recitation/gaussian.pdf
 #   mu is 0 in this case so I will take it out
 X1 <- mv_n[,1]
+X1 <- sim_mvnorm[1,]
 log_pdf <- -0.5*n*log(2*pi) - 0.5*log(det(Sigma)) - 0.5*t(X1)%*%solve(Sigma)%*%(X1)
 pdf <- exp(log_pdf)
 
@@ -198,6 +200,7 @@ plot(x= m,y= exp_val_vec)
 #     approximated the expectation?
 
 
+rm(list=ls())
 ###
 ### Problem 3
 ###
@@ -215,40 +218,104 @@ plot(x= m,y= exp_val_vec)
 #     and algorithm 2
 
 #     LOOK AT ASSIGNMENT FOR C
+sigma <- 0.2
+M <- 10
+N <- c((1:10)*100, (2:3)*1000)
+a1_time <- NULL
+a2_time <- NULL
 
 alg_1 <- function(mat){
-  solve(mat)
+  inv_1 <- solve(mat)
+  inv_1
 }
 
-alg_2 <- function(mat){
+alg_2 <- function(A, U, C, V){
+  part_1 <- solve(A)%*%U
+  part_2 <- solve((solve(C) + V%*%solve(A)%*%U))
+  part_3 <- V%*%solve(A)
+  #inv_2 <- solve(A) - solve(A)%*%U%*%solve((solve(C) + V%*%solve(A)%*%U))%*%V%*%solve(A)
+  inv_2 <- part_1%*%part_2%*%part_3
+  inv_2
+}
+
+for(i in N){
+  print(i)
+  norm_vec <- rnorm(i*M, 0,1)
+  K <- matrix(norm_vec, nrow = i, ncol = M)
   
+  A <- diag(sigma, i)
+  Sig <- A + K%*%t(K)
+  
+  C <- diag(1, M)
+  U <- K
+  V <- t(K)
+  
+  #sum(A+ U%*%C%*%V == Sig) == nrow(Sig)*ncol(Sig) #these are the same matrix
+
+  alg1_time <- system.time(alg_1(Sig))[3]
+  a1_time <- c(a1_time, alg1_time)
+
+  alg2_time <- system.time(alg_2(A, U, C, V))[3]
+  a2_time <- c(a2_time, alg2_time)
 }
 
+alg_df <- cbind(c(N,N),c() c(a1_time, a2_time))
+colnames(alg_df) <- c("N", "a1_time", "a2_time")
+alg_df <- as.data.frame(alg_df)
 
+ggplot(alg_df) + geom_line(aes(x=N, y = a1_time), col = "red") + geom_line(aes(x=N, y=a2_time), col = "green")
 
 ###
 ### Problem 4
 ###
 
-prob_4 <- matrix(NA, nrow=4, ncol =6)
+prob_4 <- matrix(NA, nrow=4, ncol =3)
 lambda <- c(2,2,50,50)
 n <- c(10,200,10,200)
+n_mc <- 1000000
+sum_1 <- NULL
+sum_2 <- NULL
+sum_3 <- NULL
 
 for(i in 1:4){
-  #i=1
-  samp <- rpois(n= n[i], lambda = lambda[i])
+  sum_1 <- NULL
+  sum_2 <- NULL
+  sum_3 <- NULL
+  print(i)
   
-  est_mean <- mean(samp)
-  est_sd <- sd(samp)
+  #i = 1
+  for(j in 1:n_mc){
+    if(j %% 10000 == 0){ print (j)}
+    samp <- rpois(n= n[i], lambda = lambda[i])
   
-  ci_1 <- cbind(est_mean - 1.96*est_mean/sqrt(n[i]), est_mean + 1.96*est_mean/sqrt(n[i]))
-  ci_2 <- cbind(est_mean - 1.96*est_sd/sqrt(n[i]), est_mean + 1.96*est_sd/sqrt(n[i]))
-  ci_3 <- cbind(qpois(p=0.025, lambda = lambda[i]), qpois(p=0.975, lambda = lambda[i]))
+    est_mean <- mean(samp)
+    est_sd <- sd(samp)
   
-  total_ci <- cbind(ci_1, ci_2, ci_3)
-  prob_4[i,] <- total_ci
+    ci_1 <- cbind(est_mean - 1.96*est_mean/sqrt(n[i]), est_mean + 1.96*est_mean/sqrt(n[i]))
+    ci_2 <- cbind(est_mean - 1.96*est_sd/sqrt(n[i]), est_mean + 1.96*est_sd/sqrt(n[i]))
+    ci_3 <- cbind(qpois(p=0.025, lambda = lambda[i]), qpois(p=0.975, lambda = lambda[i]))
+    
+    ind1 <- c(lambda[i] > ci_1[1] & lambda[i] < ci_1[2])
+    sum_1 <- sum(sum_1,ind1)
+    
+    ind2 <- c(lambda[i] > ci_2[1] & lambda[i] < ci_2[2])
+    sum_2 <- sum(sum_2,ind2)
+    
+    ind3 <- c(lambda[i] > ci_3[1] & lambda[i] < ci_3[2])
+    sum_3 <- sum(sum_3,ind3)
+  }
+  
+  cov_1 <- sum_1/n_mc
+  cov_2 <- sum_2/n_mc
+  cov_3 <- sum_3/n_mc
+  
+  se_1 <- sqrt((cov_1*(1-cov_1))/n_mc)
+  se_2 <- sqrt((cov_2*(1-cov_2))/n_mc)
+  se_3 <- sqrt((cov_3*(1-cov_3))/n_mc)
+  
+  row_i <- c(paste(cov_1, round(se_1,4), sep = ","), paste(cov_2, round(se_2,4), sep = ","), paste(cov_3, round(se_3,4), sep = ","))
+  prob_4[i,] <- row_i
 }
-
 ###
 ### Problem 5
 ###
