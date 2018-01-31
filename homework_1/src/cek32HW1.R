@@ -45,6 +45,13 @@ sum(L%*%t(L) == Sigma) #not exact, but close
 #https://en.wikipedia.org/wiki/Cholesky_decomposition
 mv_n <- mu + L%*%X
 
+sim_alg <- function(M){
+  X <- matrix(rnorm(n*M), n)
+  L <- chol(Sigma)
+  mv_n <- mu + L%*%X
+  return(mv_n)
+}
+
 # e_decomp <- eigen(Sigma)
 # e_values <- e_decomp$values
 # X <- matrix(rnorm(n * M), M)
@@ -54,24 +61,53 @@ mv_n <- mu + L%*%X
 #   I will evaluate the log pdf and then convert it back
 #   https://www.cs.cmu.edu/~epxing/Class/10701-08s/recitation/gaussian.pdf
 #   mu is 0 in this case so I will take it out
-X1 <- mv_n[,1]
-X1 <- sim_mvnorm[1,]
-log_pdf <- -0.5*n*log(2*pi) - 0.5*log(det(Sigma)) - 0.5*t(X1)%*%solve(Sigma)%*%(X1)
-pdf <- exp(log_pdf)
 
-mvrnorm
+#Calculate pdf for each X
+log_pdf_vec <- rep(NA, M)
+for(i in 1:M){
+  X1 <- mv_n[,i]
+  #X1 <- sim_mvnorm[1,]
+  log_pdf <- -0.5*n*log(2*pi) - 0.5*log(det(Sigma)) - 0.5*t(X1)%*%solve(Sigma)%*%(X1)
+  log_pdf_vec[i] <- exp(log_pdf)
+}
+
+
 ###
 ### 1b) Plot the pdf values for the samples. Report the wall time for the simulation algorithm
 ###    and the evaluation of the pdf (jointly) using, say, system.time.
 ###
 
 #plot a histogram of the values of pdf
+hist(log_pdf_vec)
+
+#simulation algorithm
+full_sim <- function(M){
+  mv_n <- sim_alg(M)
+  log_pdf_vec <- rep(NA, M)
+  for(i in 1:M){
+    X1 <- mv_n[,i]
+    #X1 <- sim_mvnorm[1,]
+    log_pdf <- -0.5*n*log(2*pi) - 0.5*log(det(Sigma)) - 0.5*t(X1)%*%solve(Sigma)%*%(X1)
+    log_pdf_vec[i] <- exp(log_pdf)
+  }
+  return(log_pdf_vec)
+}
+
+system.time(full_sim(100)))
 
 ###
 ### 1c) Now that you have successfully implemented this for n = 1000, repeat the exercise 
 ###      for n = 2,000; n = 3,000 and so on, going up to the largest value you are able 
 ###      to handle. Make plots of how the computational cost scales with increasing n.
 ###
+
+M <- 1:3*1000
+sys_time <- NULL
+for(i in M){
+  sys_t <- system.time(full_sim(M)))
+  sys_time <- c(sys_time, sys_t)
+}
+
 
 ###
 ### 1d) Write out the computational complexity of your algorithm. Show the details of your 
@@ -214,10 +250,6 @@ rm(list=ls())
 #     (you will have to determine the grid and how large you can go
 #     with N)
 
-# (b) a plot of floating point operations (flops) versus N for algorithm 1 
-#     and algorithm 2
-
-#     LOOK AT ASSIGNMENT FOR C
 sigma <- 0.2
 M <- 10
 N <- c((1:10)*100, (2:3)*1000)
@@ -240,6 +272,7 @@ alg_2 <- function(A, U, C, V){
 
 for(i in N){
   print(i)
+  #i <- N[1]
   norm_vec <- rnorm(i*M, 0,1)
   K <- matrix(norm_vec, nrow = i, ncol = M)
   
@@ -259,11 +292,27 @@ for(i in N){
   a2_time <- c(a2_time, alg2_time)
 }
 
-alg_df <- cbind(c(N,N),c() c(a1_time, a2_time))
-colnames(alg_df) <- c("N", "a1_time", "a2_time")
+alg_df <- cbind(c(N,N),c(rep("alg_1 (solve)", length(N)),rep("alg_2 (SMW)", length(N))), c(a1_time, a2_time))
+colnames(alg_df) <- c("N", "algorithm", "time")
 alg_df <- as.data.frame(alg_df)
+alg_df$time <- as.numeric(as.character(alg_df$time))
+alg_df$N <- as.numeric(as.character(alg_df$N))
 
-ggplot(alg_df) + geom_line(aes(x=N, y = a1_time), col = "red") + geom_line(aes(x=N, y=a2_time), col = "green")
+ggplot(alg_df) + geom_line(aes(x=N, y = time, col = algorithm), size = 1.2)+
+  labs(title = "N vs CPU for algorithm 1 and 2", ylab = "CPU time")
+
+# (b) a plot of floating point operations (flops) versus N for algorithm 1 
+#     and algorithm 2
+
+#If the solve function uses cholesky decomposition, then it has n^3/3 flops
+#    So, for algorithm 1, we have N^3/3 flops
+#    
+#    For algorithm 2, it is more complicated. I will break it up into parts.
+#         solve(A) -- N^2 because diagonal
+#         solve(C) -- M^2 because diagonal
+#         solve(A) - solve(A)%*%U%*%solve((solve(C) + V%*%solve(A)%*%U))%*%V%*%solve(A)
+#          N      N^2   N  N^2 N^2   M^2    M      N^2     N   N^2   M^2  M^2   N
+#          =9N^2 + 4M^2
 
 ###
 ### Problem 4
@@ -316,6 +365,8 @@ for(i in 1:4){
   row_i <- c(paste(cov_1, round(se_1,4), sep = ","), paste(cov_2, round(se_2,4), sep = ","), paste(cov_3, round(se_3,4), sep = ","))
   prob_4[i,] <- row_i
 }
+
+rm(list=ls())
 ###
 ### Problem 5
 ###
@@ -324,25 +375,27 @@ for(i in 1:4){
 # Laplace approximation (as discussed in class) to approximate the posterior
 # expectation of alpha, beta.
 
+prob_5_dat <- read.table("C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/homework_1/data/prob_5_dat.txt", quote="\"", comment.char="")
+y <- c((t(as.matrix(prob_5_dat))))
+
 set.seed(123)
-#dat <- load()
 
 # Find unnormalized log posterior of the model
-#    given parameter vector p and vector of data points y
+#    given parameter vector pparam and vector of data points y
 
-model <- function(p, y) {
-  log_lik <- sum(dgamma(y, p["alpha"], p["beta"], log = T))  # the log likelihood
-  log_post <- log_lik + dnorm(p["alpha"], 0, 3, log = T) + dnorm(p["beta"],
-                                                                 0, 3, log = T)
+log_posterior <- function(param, y) {
+  log_lik <- sum(dgamma(y, param["alpha"], param["beta"], log = T))  # the log likelihood
+  log_post <- log_lik + dnorm(param["alpha"], 0, 3, log = T) + dnorm(param["beta"], 0, 3, log = T)
   log_post
 }
 
 #give a set of initial values
-inits <- c(alpha = 0, beta = 0)
+initial_values <- c(alpha = 4, beta = 4)
 
 #fnscale is -1 so that it maximizes
-opt_fit <- optim(inits, model, control = list(fnscale = -1), y = y)
+opt_fit <- optim(initial_values, log_posterior, control = list(fnscale = -1), y = y)
 
 #posterior estimations
 post_est <- opt_fit$par
 post_est
+
