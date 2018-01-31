@@ -133,6 +133,8 @@ for(i in M){
 ###    Note that this is a way to simulate a matrix with a particular Wishart distribution. 
 ###    Read through all the parts below before beginning to work on this problem.
 ###
+#clear workspace
+rm(list=ls())
 
 #For an example,
 m <- 100
@@ -237,7 +239,7 @@ plot(x= m,y= exp_val_vec)
 #     approximated the expectation?
 
 
-rm(list=ls())
+
 ###
 ### Problem 3
 ###
@@ -251,26 +253,36 @@ rm(list=ls())
 #     (you will have to determine the grid and how large you can go
 #     with N)
 
+#clear workspace
+rm(list=ls())
+
+#defining variables and data structures
 sigma <- 0.2
 M <- 10
-N <- c((1:10)*100, (2:3)*1000)
+N <- c((1:10)*10,(2:10)*100, (3:10)*500)
 a1_time <- NULL
 a2_time <- NULL
 
+#algorithm 1, based on flops
 alg_1 <- function(mat){
-  inv_1 <- solve(mat)
+  inv_1 <- solve(mat)     #N^3/3 flops
   inv_1
 }
 
-alg_2 <- function(A, U, C, V){
-  part_1 <- solve(A)%*%U
-  part_2 <- solve((solve(C) + V%*%solve(A)%*%U))
-  part_3 <- V%*%solve(A)
-  #inv_2 <- solve(A) - solve(A)%*%U%*%solve((solve(C) + V%*%solve(A)%*%U))%*%V%*%solve(A)
-  inv_2 <- part_1%*%part_2%*%part_3
+#algorithm 2, based on SMW
+alg_2 <- function(A, U, C, V){                    #FLOPS, N 5, M 10
+  A_inv <- solve(A)                               # N
+  part_1 <- A_inv%*%U                             # NxM  
+  part_2 <- solve((solve(C) + V%*%A_inv%*%U))     # M, MxN, M^2, (2N-1)M^2, M^3/3  
+  part_3 <- V%*%A_inv                             # MxN  
+  inv_2 <- A_inv - part_1%*%part_2%*%part_3       # N^2, (2M-1)NM, (2M-1)NM      
   inv_2
+  
+  #inv_2 <- solve(A) - solve(A)%*%U%*%solve((solve(C) + V%*%solve(A)%*%U))%*%V%*%solve(A)
 }
 
+
+#using both algorithms for many values of N
 for(i in N){
   print(i)
   #i <- N[1]
@@ -299,8 +311,9 @@ alg_df <- as.data.frame(alg_df)
 alg_df$time <- as.numeric(as.character(alg_df$time))
 alg_df$N <- as.numeric(as.character(alg_df$N))
 
+#for zoom: [c(1:15, 30:43),]
 ggplot(alg_df) + geom_line(aes(x=N, y = time, col = algorithm), size = 1.2)+
-  labs(title = "N vs CPU for algorithm 1 and 2", ylab = "CPU time")
+  labs(title = "N vs CPU for algorithm 1 and 2, zoomed in", ylab = "CPU time")
 
 # (b) a plot of floating point operations (flops) versus N for algorithm 1 
 #     and algorithm 2
@@ -314,6 +327,32 @@ ggplot(alg_df) + geom_line(aes(x=N, y = time, col = algorithm), size = 1.2)+
 #         solve(A) - solve(A)%*%U%*%solve((solve(C) + V%*%solve(A)%*%U))%*%V%*%solve(A)
 #          N      N^2   N  N^2 N^2   M^2    M      N^2     N   N^2   M^2  M^2   N
 #          =9N^2 + 4M^2
+
+flops_alg_1 <- function(N){
+  flops <- N^3/3
+  flops
+}
+
+flops_alg_2 <- function(N, M){
+  flops <- N + 3*N*M + M + M^2 + (2*N-1)*M^2 + M^3/3 + N^2 + 2*(2*M-1)*N*M    
+  flops
+}
+
+
+flop_alg_1 <- flops_alg_1(N)
+flop_alg_2 <- flops_alg_2(N,M)
+
+flop_df <- cbind(c(N,N),c(rep("alg_1 (solve)", length(N)),rep("alg_2 (SMW)", length(N))), c(flop_alg_1, flop_alg_2))
+colnames(flop_df) <- c("N", "algorithm", "flops")
+flop_df <- as.data.frame(flop_df)
+flop_df$flops <- as.numeric(as.character(flop_df$flops))
+flop_df$N <- as.numeric(as.character(flop_df$N))
+
+#[c(1:10, 28:37),] for zoom
+ggplot(flop_df) + geom_line(aes(x=N, y = flops, col = algorithm), size = 1.2)+
+  labs(title = "N vs flops for algorithm 1 and 2", ylab = "flops")
+
+
 
 ###
 ### Problem 4
