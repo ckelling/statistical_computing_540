@@ -11,6 +11,7 @@ library(mvtnorm)
 library(tictoc)
 library(optimr)
 library(ggplot2)
+library(xtable)
 
 ###
 ### Problem 1
@@ -318,7 +319,13 @@ ggplot(alg_df) + geom_line(aes(x=N, y = time, col = algorithm), size = 1.2)+
 ### Problem 4
 ###
 
+#clear workspace
+rm(list =ls())
+
+#create variables/starting values
+
 prob_4 <- matrix(NA, nrow=4, ncol =3)
+length_ci <- matrix(NA, nrow=4, ncol =3)
 lambda <- c(2,2,50,50)
 n <- c(10,200,10,200)
 n_mc <- 1000000
@@ -326,47 +333,88 @@ sum_1 <- NULL
 sum_2 <- NULL
 sum_3 <- NULL
 
+#build table for report, using n_mc MC iterations
 for(i in 1:4){
-  sum_1 <- NULL
-  sum_2 <- NULL
-  sum_3 <- NULL
+  sum_1 <- NULL; ci1_f <- NULL; len_ci1 <- NULL
+  sum_2 <- NULL; ci2_f <- NULL; len_ci2 <- NULL
+  sum_3 <- NULL; ci3_f <- NULL; len_ci3 <- NULL
   print(i)
   
-  #i = 1
+  #i = 3
   for(j in 1:n_mc){
     if(j %% 10000 == 0){ print (j)}
+    
+    #simulating poisson
     samp <- rpois(n= n[i], lambda = lambda[i])
   
+    #taking sample mean and sample standard deviation
     est_mean <- mean(samp)
     est_sd <- sd(samp)
   
+    #creating the 3 confidence intervals
     ci_1 <- cbind(est_mean - 1.96*est_mean/sqrt(n[i]), est_mean + 1.96*est_mean/sqrt(n[i]))
     ci_2 <- cbind(est_mean - 1.96*est_sd/sqrt(n[i]), est_mean + 1.96*est_sd/sqrt(n[i]))
     ci_3 <- cbind(qpois(p=0.025, lambda = lambda[i]), qpois(p=0.975, lambda = lambda[i]))
     
+    #indicator if the true lambda is inside the confidence interval
     ind1 <- c(lambda[i] > ci_1[1] & lambda[i] < ci_1[2])
     sum_1 <- sum(sum_1,ind1)
     
+    #length of confidence interval
+    len_ci1[j] <- ci_1[2] - ci_1[1]
+    
+    #if the true lambda was outside of the confidence interval, save this confidence interval
+    if(ind1 == FALSE){
+      ci1_f <- rbind(ci1_f, ci_1)
+    }
+    
+    
+    #repeating for the second and third confidence interval
     ind2 <- c(lambda[i] > ci_2[1] & lambda[i] < ci_2[2])
     sum_2 <- sum(sum_2,ind2)
+    len_ci2[j] <- ci_2[2] - ci_2[1]
+    
+    if(ind2 == FALSE){
+      ci2_f <- rbind(ci2_f, ci_2)
+    }
     
     ind3 <- c(lambda[i] > ci_3[1] & lambda[i] < ci_3[2])
     sum_3 <- sum(sum_3,ind3)
+    len_ci3[j] <- ci_3[2] - ci_3[1]
+    
+    if(ind3 == FALSE){
+      ci3_f <- rbind(ci3_f, ci_3)
+    }
+    
   }
-  
+  #can do histograms to see distribution
+  #hist(len_ci1, main = expression(paste("CI with sample mean, " lambda " = 2")))
+  #hist(len_ci2, main = expression(paste("CI with sample std dev, " lambda " = 2")))
+  #hist(len_ci1, main = expression(paste("CI with sample mean, " lambda " = 50")))
+  #hist(len_ci2, main = expression(paste("CI with sample std dev, " lambda " = 50")))
+
+  #storing coverate (p)
   cov_1 <- sum_1/n_mc
   cov_2 <- sum_2/n_mc
   cov_3 <- sum_3/n_mc
   
+  #storing standard error sqrt((p(1-p)/n))
   se_1 <- sqrt((cov_1*(1-cov_1))/n_mc)
   se_2 <- sqrt((cov_2*(1-cov_2))/n_mc)
   se_3 <- sqrt((cov_3*(1-cov_3))/n_mc)
   
+  #saving the row of the data frame on coverage and standard error
   row_i <- c(paste(cov_1, round(se_1,4), sep = ","), paste(cov_2, round(se_2,4), sep = ","), paste(cov_3, round(se_3,4), sep = ","))
   prob_4[i,] <- row_i
+  
+  #saving row of the dataframe on length of confidence intervals
+  len_i <- c(mean(len_ci1), mean(len_ci2), mean(len_ci3))
+  length_ci[i,] <- len_i
 }
 
-rm(list=ls())
+xtable(prob_4)
+
+
 ###
 ### Problem 5
 ###
@@ -375,6 +423,10 @@ rm(list=ls())
 # Laplace approximation (as discussed in class) to approximate the posterior
 # expectation of alpha, beta.
 
+#clear workspace
+rm(list=ls())
+
+#load data
 prob_5_dat <- read.table("C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/homework_1/data/prob_5_dat.txt", quote="\"", comment.char="")
 y <- c((t(as.matrix(prob_5_dat))))
 
@@ -392,10 +444,10 @@ log_posterior <- function(param, y) {
 #give a set of initial values
 initial_values <- c(alpha = 4, beta = 4)
 
-#fnscale is -1 so that it maximizes
+#fnscale is -1 so that it maximizes the log posterior likelihood
 opt_fit <- optim(initial_values, log_posterior, control = list(fnscale = -1), y = y)
 
-#posterior estimations
+#posterior estimates
 post_est <- opt_fit$par
 post_est
 
