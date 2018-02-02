@@ -23,57 +23,111 @@ library(RSpectra)
 #     distribution with mean 0 (vector of 0s) and covariance matrix
 #     as above for n = 1000.
 #     Sigma_{ij} = exp(-|i-j|/phi),
+
+#Creating 3 different algorithms
+
+sim_alg1 <- function(n, mu, Sigma){ #cholesky factorization
+  X <- matrix(rnorm(n*M), nrow = M, ncol=n)
+  L <- chol(Sigma)
+  mv_n <- matrix(mu, nrow = M, ncol =n) + X%*%L #even through mu is 0 in our case
+  return(mv_n)
+}
+
+sim_alg2 <- function(n, mu, Sigma){ #spectral decomposition
+  dim <- length(mu)
+  ev <- eigen(Sigma)
+  val <- ev$values
+  vec <- ev$vectors
+  
+  R <- vec%*%diag(sqrt(val))%*%t(vec)
+  X <- matrix(rnorm(n*M), nrow = M, ncol=n)
+  
+  mv_n2 <- X%*%R + matrix(mu, nrow = M, ncol =n)
+  return(mv_n2)
+}
+
+sim_alg3 <- function(n, mu, Sigma){ #SVD
+  dim <- length(mu)
+  S_vd <- svd(Sigma)
+  u <- S_vd$u
+  d <- S_vd$d
+  v <- S_vd$v
+  
+  R <- u%*%diag(sqrt(d))%*%t(v)
+  X <- matrix(rnorm(n*M), nrow = M, ncol=n)
+  
+  mv_n3 <- X%*%R + matrix(mu, nrow = M, ncol =n)
+  return(mv_n3)
+}
+#https://books.google.com/books?id=cR1jDAAAQBAJ&pg=PA71&dq=generating+multivariate+normal+in+r&hl=en&sa=X&ved=0ahUKEwiCsaOW24PZAhVIj1kKHdQxDAsQ6AEIJzAA#v=onepage&q&f=false
+
+
+#Write your own code to also evaluate the multivariate normal pdf at each simulated value.
+#   https://www.cs.cmu.edu/~epxing/Class/10701-08s/recitation/gaussian.pdf
+#   mu is 0 in this case so I will take it out
+
+#Calculate pdf for each X
+
+mvn_pdf <- function(X,Sigma){
+  C <- chol(Sigma)
+  
+  #as in class, r'r = (x-mu)Sigma^-1(x-mu), but mu is 0 in our case
+  r <- solve(C)%*%X
+  
+  #the product of the diagonal elements Cii is the determinant of Sigma (n flops)
+  log_pdf <- -0.5*n*log(2*pi) - 0.5*sum(log(diag(C))) - 0.5*t(r)%*%r
+  log_pdf
+}
+
+
+# mvn_direct <- function(X,Sigma){
+#   log_pdf <- -0.5*n*log(2*pi) - 0.5*log(det(Sigma)) - 0.5*t(X)%*%solve(Sigma)%*%(X)
+#   log_pdf
+# }
+
+
+#algorithm that puts them together
+full_sim <- function(n,mu,Sigma){
+  X <- sim_alg2(n, mu, Sigma)
+  #pdf <- rep(NA, nrow(X))
+  #for(i in 1:nrow(X)){
+  #  pdf[i] <- mvn_pdf(X[i,],Sigma)
+  #  print(i)
+  #}
+  return(X)
+}
+
+###
+### Specify values and run algorithm
+###
+
 M <- 100
-n <- 1000
-phi <- 0.9
+n <- 2000
+phi <- 0.2
 mu <- rep(0,n)
 Sigma <- matrix(NA, nrow=n, ncol=n)
 
 #creating covariance matrix
 for(i in 1:nrow(Sigma)){
   for(j in 1:ncol(Sigma)){
-    Sigma[i,j] <- 2*exp(-abs(i-j)/phi)
+    Sigma[i,j] <- exp(-abs(i-j)/(n*phi))
   }
 }
 
-#simulating 100 draws, through R function
-sim_mvnorm <- mvrnorm(M, mu, Sigma)
 
-#by hand
-X <- matrix(rnorm(n*M), n)
-L <- chol(Sigma)
-sum(L%*%t(L) == Sigma) #not exact, but close
-#create multivariate normal
-#https://stats.stackexchange.com/questions/12953/generating-values-from-a-multivariate-gaussian-distribution
-#https://en.wikipedia.org/wiki/Cholesky_decomposition
-mv_n <- mu + L%*%X
+tic()
+pdf_eval <- full_sim(n,mu,Sigma)
+toc()
 
-sim_alg <- function(M){
-  X <- matrix(rnorm(n*M), n)
-  L <- chol(Sigma)
-  mv_n <- mu + L%*%X
-  return(mv_n)
-}
+#n=1000
+#sim_alg1, mvn_pdf 71, 65, 65
+#sim_alg2, mvn_pdf 68, 68, 69
+#sim_alg3, mvn_pdf 69, 70, 70
 
-# e_decomp <- eigen(Sigma)
-# e_values <- e_decomp$values
-# X <- matrix(rnorm(n * M), M)
-# X <- mu + e_decomp$vectors %*% diag(sqrt(e_values), n) %*% t(X)
-
-#Write your own code to also evaluate the multivariate normal pdf at each simulated value.
-#   I will evaluate the log pdf and then convert it back
-#   https://www.cs.cmu.edu/~epxing/Class/10701-08s/recitation/gaussian.pdf
-#   mu is 0 in this case so I will take it out
-
-#Calculate pdf for each X
-log_pdf_vec <- rep(NA, M)
-for(i in 1:M){
-  X1 <- mv_n[,i]
-  #X1 <- sim_mvnorm[1,]
-  log_pdf <- -0.5*n*log(2*pi) - 0.5*log(det(Sigma)) - 0.5*t(X1)%*%solve(Sigma)%*%(X1)
-  log_pdf_vec[i] <- exp(log_pdf)
-}
-
+##n=2000, just simulation
+#sim_alg1, mvn_pdf  2.5, 2.28
+#sim_alg2, mvn_pdf  25,  24
+#sim_alg3, mvn_pdf  37, 38
 
 ###
 ### 1b) Plot the pdf values for the samples. Report the wall time for the simulation algorithm
@@ -81,22 +135,8 @@ for(i in 1:M){
 ###
 
 #plot a histogram of the values of pdf
-hist(log_pdf_vec)
-
-#simulation algorithm
-full_sim <- function(M){
-  mv_n <- sim_alg(M)
-  log_pdf_vec <- rep(NA, M)
-  for(i in 1:M){
-    X1 <- mv_n[,i]
-    #X1 <- sim_mvnorm[1,]
-    log_pdf <- -0.5*n*log(2*pi) - 0.5*log(det(Sigma)) - 0.5*t(X1)%*%solve(Sigma)%*%(X1)
-    log_pdf_vec[i] <- exp(log_pdf)
-  }
-  return(log_pdf_vec)
-}
-
-system.time(full_sim(100)))
+hist(pdf_eval, main = "Histogram of 100 evaluations of mvn pdf")
+system.time(full_sim(n,mu,Sigma))
 
 ###
 ### 1c) Now that you have successfully implemented this for n = 1000, repeat the exercise 
@@ -104,12 +144,21 @@ system.time(full_sim(100)))
 ###      to handle. Make plots of how the computational cost scales with increasing n.
 ###
 
-M <- 1:3*1000
+n <- 1:3*1000
 sys_time <- NULL
-for(i in M){
-  sys_t <- system.time(full_sim(M)))
+for(i in n){
+  sys_t <- system.time(full_sim(n,mu,Sigma))[1]
   sys_time <- c(sys_time, sys_t)
 }
+
+prob_1 <- data.frame(n, sys_time)
+colnames(prob_1) <- c("n", "system_time")
+prob_1$n <- as.numeric(as.character(prob_1$n))
+prob_1$system_time <- as.numeric(as.character(prob_1$system_time))
+
+ggplot(prob_1) + geom_line(aes(x=n, y = system_time), size = 1.2)+
+  labs(title = "Computational Cost scaling with n", ylab = "wall time")
+
 
 
 ###
@@ -118,6 +167,8 @@ for(i in M){
 ###      cost of that algorithm by looking through the documentation.
 ###
 
+#This is included in the report
+
 ###
 ### 1e) Plot the theoretical cost of your algorithm as you increase n. Do this in terms of 
 ###     flops (floating point operations). How does the computation scale here when compared
@@ -125,6 +176,24 @@ for(i in M){
 ###     any explanation for differences between this plot and the above plot? Note: the 
 ###     discussion becomes more interesting as n gets large.
 ###
+
+prob_1_flops <- function(n){
+  flop <- n^2
+}
+
+flop_alg_1 <- flops_alg_1(N)
+flop_alg_2 <- flops_alg_2(N,M)
+
+flop_df <- cbind(c(N,N),c(rep("alg_1 (solve)", length(N)),rep("alg_2 (SMW)", length(N))), c(flop_alg_1, flop_alg_2))
+colnames(flop_df) <- c("N", "algorithm", "flops")
+flop_df <- as.data.frame(flop_df)
+flop_df$flops <- as.numeric(as.character(flop_df$flops))
+flop_df$N <- as.numeric(as.character(flop_df$N))
+
+#[c(1:10, 28:37),] for zoom
+ggplot(flop_df) + geom_line(aes(x=N, y = flops, col = algorithm), size = 1.2)+
+  labs(title = "N vs flops for algorithm 1 and 2", ylab = "flops")
+
 
 
 ###
@@ -171,25 +240,30 @@ for(j in m){
     #smallest <- eigs(Sigma, 1, which = "LM", sigma = 0)$values
     # https://cran.r-project.org/web/packages/RSpectra/vignettes/introduction.html
     lambda <- eigen_decomp$values[1:3]
-    d1_new <- lambda[3]-lambda[2]
-    d2_new <- lambda[2]-lambda[1]
+    d1_new <- lambda[1]-lambda[2]
+    d2_new <- lambda[2]- lambda[3]
     d1[i] <- d1_new
     d2[i] <- d2_new
   }
   df <- cbind(df, d1,d2)
 }
 dfb <- df
+
+dfb2 <- as.data.frame(df)
+dfb2$d1 <- as.numeric(dfb2$d1)
+dfb2$d2 <- as.numeric(dfb2$d2)
+
 #expected value of d1 and d2
-mean(d1) # m=100: 9.69232    , m=1,000: 9.591571    , m=10,000: 9.537369
-mean(d2) # m=100: 6.271687   , m=1,000: 6.284819    , m=10,000: 6.324104
+mean(dfb2[,1]) # m=100: 9.69232    , m=1,000: 9.591571    , m=10,000: 9.537369
+mean(dfb2[,2]) # m=100: 6.271687   , m=1,000: 6.284819    , m=10,000: 6.324104
 
 #Monte Carlo Standard Errors
-sd(d1)/sqrt(n)  # m=100: 5.546734   , m=1,000: 5.392687    , m=10,000: 5.470581
-sd(d2)/sqrt(n)  # m=100: 3.493466   , m=1,000: 3.499043    , m=10,000: 3.52086
+sd(dfb2[,1])/sqrt(n)  # m=100: 5.546734   , m=1,000: 5.392687    , m=10,000: 5.470581
+sd(dfb2[,2])/sqrt(n)  # m=100: 3.493466   , m=1,000: 3.499043    , m=10,000: 3.52086
 
 #plot approximate density plots for d1, d2
-plot(density(d1), "Density of d1 at m = 100")
-plot(density(d2), "Density of d2 at m = 100")
+plot(density(dfb2[,1]), "Density of d1 at m = 1000")
+plot(density(dfb2[,2]), "Density of d2 at m = 1000")
 
 ###
 ###  2b)
@@ -237,12 +311,11 @@ plot(density(df[,2]), "Density of smallest eigen at m = 1,000")
 
 #Now study how the expected smallest eigenvalue changes as a function of m. 
 #(i) Plot approximate E(lambda_m), expected value of smallest eigenvalue, versus m. 
-m <- c(1:100 * 10,3:6*500) #1:100 * 10,
-test <- 1:100 * 10
-#exp_val_vec2 <- exp_val_vec
+m <- c(1:100 * 10, 2:6*500) #(up to 3,000)
 exp_val_vec <- NULL
-n <- 100 #sample size
-
+n <- 50 #sample size
+new_dat <- NULL
+new_m <- NULL 
 for(j in m){
   print(paste(j, "**********************"))
   sm <- rep(NA,n)
@@ -261,10 +334,6 @@ for(j in m){
   exp_val_vec <- c(exp_val_vec, exp_val)
 }
 
-###
-
-###
-
 prob_2 <- data.frame(m, exp_val_vec)
 colnames(prob_2) <- c("m", "expected_value")
 prob_2$m <- as.numeric(as.character(prob_2$m))
@@ -273,10 +342,9 @@ prob_2$expected_value <- as.numeric(as.character(prob_2$expected_value))
 ggplot(prob_2) + geom_line(aes(x=m, y = expected_value), size = 1.2)+
   labs(title = "m vs expected value of smallest eigenvector", ylab = "expected value")
 
+
 #(ii) Report your grid of m values. (iii) What is the largest m value for which you 
 #     approximated the expectation?
-
-exp_val_vec_2 <- c(0.0733591536, 0.0379156155, 0.0198245616, 0.0180753816, 0.0103755242, 0.0089777114, 0.0096156783, 0.0102288524, 0.0069491758, 0.0062841157, 0.0053903295, 0.0063654489, 0.0050404595, 0.0052720499, 0.0054420552, 0.0035475238, 0.0039151589, 0.0041045611, 0.0040739881, 0.0037872857, 0.0037378989, 0.0035142535, 0.0026135692, 0.0027201996, 0.0027336333, 0.0027757366, 0.0022619196, 0.0019878161, 0.0016583414, 0.0021004911, 0.0017371396, 0.0017891204, 0.0022129804, 0.0017180198, 0.0024197094, 0.0022395280, 0.0015340470, 0.0012885595, 0.0018150200, 0.0018829293, 0.0017238653, 0.0021366696, 0.0019007053, 0.0014812419, 0.0016249169, 0.0014746681, 0.0015488306, 0.0015422615, 0.0014832698, 0.0013745350, 0.0010942752, 0.0012683243, 0.0012176643, 0.0010465356, 0.0013874523, 0.0009151464, 0.0009779324, 0.0011047335, 0.0011135144, 0.0011581533 0.0013261632 0.0011842986 0.0009418504 0.0008637009 0.0012042640 0.0014792420 0.0009825543 0.0009585732 0.0008142311 0.0008808660 0.0009690631 0.0012030432 0.0008774910 0.0009821160 0.0007181296 0.0009557500 0.0009308187 0.0011616895 0.0009327619 0.0007620769 0.0010152202 0.0009325263 0.0007143623 0.0006568169 0.0007831074 0.0008342921 0.0007174419 0.0009398580 0.0008389230 0.0007639229 0.0006491160 0.0007129268 0.0006939538 0.0007379282 0.0007542634 0.0006987829 0.0008465385 0.0006206839 0.0006725681 0.0008509256
 
 
 ###
@@ -336,10 +404,10 @@ for(i in N){
   V <- t(K)
   
   #sum(A+ U%*%C%*%V == Sig) == nrow(Sig)*ncol(Sig) #these are the same matrix
-
+  
   alg1_time <- system.time(alg_1(Sig))[3]
   a1_time <- c(a1_time, alg1_time)
-
+  
   alg2_time <- system.time(alg_2(A, U, C, V))[3]
   a2_time <- c(a2_time, alg2_time)
 }
@@ -424,11 +492,11 @@ for(i in 1:4){
     
     #simulating poisson
     samp <- rpois(n= n[i], lambda = lambda[i])
-  
+    
     #taking sample mean and sample standard deviation
     est_mean <- mean(samp)
     est_sd <- sd(samp)
-  
+    
     #creating the 3 confidence intervals
     ci_1 <- cbind(est_mean - 1.96*est_mean/sqrt(n[i]), est_mean + 1.96*est_mean/sqrt(n[i]))
     ci_2 <- cbind(est_mean - 1.96*est_sd/sqrt(n[i]), est_mean + 1.96*est_sd/sqrt(n[i]))
@@ -470,7 +538,7 @@ for(i in 1:4){
   #hist(len_ci2, main = expression(paste("CI with sample std dev, " lambda " = 2")))
   #hist(len_ci1, main = expression(paste("CI with sample mean, " lambda " = 50")))
   #hist(len_ci2, main = expression(paste("CI with sample std dev, " lambda " = 50")))
-
+  
   #storing coverate (p)
   cov_1 <- sum_1/n_mc
   cov_2 <- sum_2/n_mc
@@ -528,4 +596,3 @@ opt_fit <- optim(initial_values, log_posterior, control = list(fnscale = -1), y 
 #posterior estimates
 post_est <- opt_fit$par
 post_est
-
