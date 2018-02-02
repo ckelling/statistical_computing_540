@@ -29,8 +29,8 @@ library(RSpectra)
 sim_alg1 <- function(n, mu, Sigma){ #cholesky factorization
   X <- matrix(rnorm(n*M), nrow = M, ncol=n)
   L <- chol(Sigma)
-  mv_n <- matrix(mu, nrow = M, ncol =n) + X%*%L #even through mu is 0 in our case
-  return(mv_n)
+  mv_n <- X%*%L #+ matrix(mu, nrow = M, ncol =n),  mu is 0 in our case so omitted
+  return(list(mv_n,L))
 }
 
 sim_alg2 <- function(n, mu, Sigma){ #spectral decomposition
@@ -68,8 +68,8 @@ sim_alg3 <- function(n, mu, Sigma){ #SVD
 
 #Calculate pdf for each X
 
-mvn_pdf <- function(X,Sigma){
-  C <- chol(Sigma)
+mvn_pdf <- function(X,C){
+  #C <- chol(Sigma)
   
   #as in class, r'r = (x-mu)Sigma^-1(x-mu), but mu is 0 in our case
   r <- solve(C)%*%X
@@ -88,13 +88,15 @@ mvn_pdf <- function(X,Sigma){
 
 #algorithm that puts them together
 full_sim <- function(n,mu,Sigma){
-  X <- sim_alg2(n, mu, Sigma)
-  #pdf <- rep(NA, nrow(X))
-  #for(i in 1:nrow(X)){
-  #  pdf[i] <- mvn_pdf(X[i,],Sigma)
-  #  print(i)
-  #}
-  return(X)
+  full_result <- sim_alg1(n, mu, Sigma)
+  X <- full_result[[1]]
+  C <- full_result[[2]]
+  pdf <- rep(NA, nrow(X))
+  for(i in 1:nrow(X)){
+    pdf[i] <- mvn_pdf(X[i,],C)
+    print(i)
+  }
+  return(pdf)
 }
 
 ###
@@ -102,11 +104,11 @@ full_sim <- function(n,mu,Sigma){
 ###
 
 M <- 100
-n <- 2000
+n <- 1000
 phi <- 0.2
 mu <- rep(0,n)
 Sigma <- matrix(NA, nrow=n, ncol=n)
-
+solve(Sigma)
 #creating covariance matrix
 for(i in 1:nrow(Sigma)){
   for(j in 1:ncol(Sigma)){
@@ -119,15 +121,21 @@ tic()
 pdf_eval <- full_sim(n,mu,Sigma)
 toc()
 
-#n=1000
-#sim_alg1, mvn_pdf 71, 65, 65
-#sim_alg2, mvn_pdf 68, 68, 69
-#sim_alg3, mvn_pdf 69, 70, 70
+#n=1000, just simulation
+#sim_alg1, mvn_pdf .35, .34
+#sim_alg2, mvn_pdf 3.22, 3.15
+#sim_alg3, mvn_pdf 4.75, 4.7
 
 ##n=2000, just simulation
-#sim_alg1, mvn_pdf  2.5, 2.28
-#sim_alg2, mvn_pdf  25,  24
-#sim_alg3, mvn_pdf  37, 38
+#sim_alg1, mvn_pdf  2.5, 2.28, 2.31
+#sim_alg2, mvn_pdf  25,  24, 24
+#sim_alg3, mvn_pdf  37, 38, 38
+
+##n=3000, just simulation
+#sim_alg1, mvn_pdf   7.47, 7.47, 7.6
+#sim_alg2, mvn_pdf  81, 82, 82
+#sim_alg3, mvn_pdf  129, 128, 131
+
 
 ###
 ### 1b) Plot the pdf values for the samples. Report the wall time for the simulation algorithm
@@ -135,8 +143,10 @@ toc()
 ###
 
 #plot a histogram of the values of pdf
-hist(pdf_eval, main = "Histogram of 100 evaluations of mvn pdf")
-system.time(full_sim(n,mu,Sigma))
+hist(pdf_eval, main = "Histogram of 100 evaluations of mvn pdf", xlab = "Evaluation of pdf")
+system.time(full_sim(n,mu,Sigma)) # 48 seconds
+
+
 
 ###
 ### 1c) Now that you have successfully implemented this for n = 1000, repeat the exercise 
@@ -144,11 +154,32 @@ system.time(full_sim(n,mu,Sigma))
 ###      to handle. Make plots of how the computational cost scales with increasing n.
 ###
 
-n <- 1:3*1000
-sys_time <- NULL
-for(i in n){
-  sys_t <- system.time(full_sim(n,mu,Sigma))[1]
-  sys_time <- c(sys_time, sys_t)
+n <- c(1:5*1000,11:14*500)  #1:5*1000
+sys_time2 <- NULL
+
+for(k in n){
+  print(paste(k, "******************************************************"))
+  
+  M <- 100
+  phi <- 0.2
+  mu <- rep(0,k)
+  Sigma <- matrix(NA, nrow=k, ncol=k)
+  
+  #creating covariance matrix
+  for(i in 1:nrow(Sigma)){
+    for(j in 1:ncol(Sigma)){
+      Sigma[i,j] <- exp(-abs(i-j)/(k*phi))
+    }
+  }
+  
+  print(paste("Done with making matrix"))
+  
+  tic()
+  pdf_eval <- full_sim(k,mu,Sigma)
+  time <- toc()
+  time <- time$toc-time$tic
+  sys_time2 <- c(sys_time2, time)
+  save(sys_time2, file= "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/homework_1/data/prob_1c_sys_t2.Rdata")
 }
 
 prob_1 <- data.frame(n, sys_time)
@@ -177,22 +208,23 @@ ggplot(prob_1) + geom_line(aes(x=n, y = system_time), size = 1.2)+
 ###     discussion becomes more interesting as n gets large.
 ###
 
-prob_1_flops <- function(n){
-  flop <- n^2
+prob_1_flops <- function(n,M){
+  flops_sim <- n^3/3+ (2*n-1)*M*n
+  flops_eval_pdf <- M*(3*n+6)
+  tot_flops <- flops_sim + flops_eval_pdf
+  return(tot_flops) 
 }
 
-flop_alg_1 <- flops_alg_1(N)
-flop_alg_2 <- flops_alg_2(N,M)
+flop_alg <- prob_1_flops(N,100)
 
-flop_df <- cbind(c(N,N),c(rep("alg_1 (solve)", length(N)),rep("alg_2 (SMW)", length(N))), c(flop_alg_1, flop_alg_2))
-colnames(flop_df) <- c("N", "algorithm", "flops")
-flop_df <- as.data.frame(flop_df)
+flop_df <- data.frame(n, flop_alg)
+colnames(flop_df) <- c("n", "flops")
 flop_df$flops <- as.numeric(as.character(flop_df$flops))
-flop_df$N <- as.numeric(as.character(flop_df$N))
+flop_df$n <- as.numeric(as.character(flop_df$n))
 
-#[c(1:10, 28:37),] for zoom
-ggplot(flop_df) + geom_line(aes(x=N, y = flops, col = algorithm), size = 1.2)+
-  labs(title = "N vs flops for algorithm 1 and 2", ylab = "flops")
+
+ggplot(flop_df) + geom_line(aes(x=n, y = flops), size = 1.2)+
+  labs(title = "n vs flops for full algorithm", ylab = "flops")
 
 
 
