@@ -222,7 +222,7 @@ colnames(flop_df) <- c("n", "flops")
 flop_df$flops <- as.numeric(as.character(flop_df$flops))
 flop_df$n <- as.numeric(as.character(flop_df$n))
 
-
+#[c(1:10, 28:37),] for zoom
 ggplot(flop_df) + geom_line(aes(x=n, y = flops), size = 1.2)+
   labs(title = "n vs flops for full algorithm", ylab = "flops")
 
