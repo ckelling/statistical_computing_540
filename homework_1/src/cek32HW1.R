@@ -184,10 +184,17 @@ for(k in n){
 
 prob_1 <- data.frame(n, sys_time2)
 colnames(prob_1) <- c("n", "system_time")
-prob_1$n <- as.numeric(as.character(prob_1$n))
-prob_1$system_time <- as.numeric(as.character(prob_1$system_time))
+prob_1$scale <- "actual_comp_time"
 
-ggplot(prob_1) + geom_line(aes(x=n, y = system_time), size = 1.2)+
+prob1_b <- cbind(m, m^3)
+colnames(prob1_b) <- c("n", "system_time")
+prob1_b$scale <- "m^3"
+
+prob_1_full <- rbind(prob_1, prob1_b)
+prob_1_full$n <- as.numeric(as.character(prob_1_full$n))
+prob_1_full$system_time <- as.numeric(as.character(prob_1_full$system_time))
+
+ggplot(prob_1_full) + geom_line(aes(x=n, y = system_time, color = scale), size = 1.2)+
   labs(title = "Computational Cost scaling with n", y = "wall time")
 
 
@@ -253,8 +260,8 @@ d2 <- lambda[2]-lambda[3]
 ###
 
 #now I will do this using Monte Carlo methods
-m <- c(1000)#,1000)#,10000) skip 10,000 for now
-n <- 1000 #Monte Carlo sample size
+m <- c(10000)#,1000)#,10000) skip 10,000 for now
+n <- 100 #Monte Carlo sample size
 d1 <- rep(NA,n)
 d2 <- rep(NA,n)
 df <- NULL
@@ -281,8 +288,6 @@ for(j in m){
 }
 dfb <- df
 
-load(file= "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/homework_1/data/prob_2a.Rdata")
-
 dfb2 <- as.data.frame(df)
 dfb2$d1 <- as.numeric(dfb2$d1)
 dfb2$d2 <- as.numeric(dfb2$d2)
@@ -292,12 +297,12 @@ mean(dfb2[,1])
 mean(dfb2[,2]) 
 
 #Monte Carlo Standard Errors
-sd(dfb2[,1])/sqrt(n)  
-sd(dfb2[,2])/sqrt(n)  
+sd(dfb2[,1])/sqrt(n) 
+sd(dfb2[,2])/sqrt(n) 
 
 #plot approximate density plots for d1, d2
-plot(density(-dfb2[,2]), "Density of d1 at m = 10,000")
-plot(density(-dfb2[,1]), "Density of d2 at m = 10,000")
+plot(density(dfb2[,1]), "Density of d1 at m = 10,000")
+plot(density(dfb2[,2]), "Density of d2 at m = 10,000")
 
 ###
 ###  2b)
@@ -325,7 +330,6 @@ for(j in m){
   df <- cbind(df,sm)
 }
 
-
 #expected value of d1 and d2
 mean(df[,1]) #m=100
 mean(df[,2]) #m=1000
@@ -333,6 +337,8 @@ mean(df[,2]) #m=1000
 #Monte Carlo Standard Errors
 sd(df[,1])/sqrt(n) #m=100
 sd(df[,2])/sqrt(n) #m=1000
+
+save(df, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/homework_1/data/prob_2b.Rdata")
 
 #plot approximate density plots for smallest eigen value
 plot(density(df[,1]), "Density of smallest eigen at m = 100")
@@ -372,6 +378,7 @@ colnames(prob_2) <- c("m", "expected_value")
 prob_2$m <- as.numeric(as.character(prob_2$m))
 prob_2$expected_value <- as.numeric(as.character(prob_2$expected_value))
 
+
 ggplot(prob_2) + geom_line(aes(x=m, y = expected_value), size = 1.2)+
   labs(title = "m vs expected value of smallest eigenvector", ylab = "expected value")
 
@@ -410,7 +417,7 @@ alg_1 <- function(mat){
 }
 
 #algorithm 2, based on SMW
-alg_2 <- function(A, U, C, V){                    #FLOPS, N 5, M 10
+alg_2 <- function(A, U, C, V){                    #FLOPS
   A_inv <- solve(A)                               # N
   part_1 <- A_inv%*%U                             # NxM  
   part_2 <- solve((solve(C) + V%*%A_inv%*%U))     # M, MxN, M^2, (2N-1)M^2, M^3/3  
@@ -474,7 +481,8 @@ flops_alg_1 <- function(N){
 }
 
 flops_alg_2 <- function(N, M){
-  flops <- N + 3*N*M + M + M^2 + (2*N-1)*M^2 + M^3/3 + N^2 + 2*(2*M-1)*N*M    
+  flops <- N^2 + M^2 + 3*N*M + M^2 + N^2 + M^3/3 + (2*N-1)*M^2 + 6*(2*M-1)*N^2 + (2*M-1)*N*M 
+  #  N + M + 3*N*M + M^2 + N^2 + M^3/3 + (2*N-1)*M^2 + (2*M-1)*N^2 + (2*M-1)*N*M 
   flops
 }
 
@@ -616,6 +624,7 @@ set.seed(123)
 #    given parameter vector pparam and vector of data points y
 
 
+tic()
 denom <- function(param, y){
   log_lik <- sum(dgamma(y, param["alpha"], param["beta"], log = T))  # the log likelihood
   log_post <- log_lik + dnorm(param["alpha"], 0, 3, log = T) + dnorm(param["beta"], 0, 3, log = T)
@@ -627,41 +636,19 @@ denom <- function(param, y){
 num <- function(param, y){
   log_lik <- sum(dgamma(y, param["alpha"], param["beta"], log = T))  # the log likelihood
   log_post <- log_lik + dnorm(param["alpha"], 0, 3, log = T) + dnorm(param["beta"], 0, 3, log = T)
-  num <- log_post + log(param["alpha"]) + log(param["beta"])
+  num <- log_post + log(param["beta"])# + log(param["beta"])
 }
 
 
 #give a set of initial values
-initial_values <- c(alpha = 4, beta = 4)
+initial_values <- c(alpha = 3, beta = 0.5)
 
 #fnscale is -1 so that it maximizes the log posterior likelihood
 opt_fit_den <- optim(initial_values, denom, control = list(fnscale = -1), y = y, hessian = TRUE)
 opt_fit_num <- optim(initial_values, num, control = list(fnscale = -1), y = y, hessian = TRUE)
 
-full_den <- exp(opt_fit_den$fit)*(det(solve(opt_fit_den$hessian))^(-1/2))
-full_num <- exp(opt_fit_num$fit)*(det(solve(opt_fit_num$hessian))^(-1/2))
+full_den <- exp(opt_fit_den$value)*(det(solve(opt_fit_den$hessian))^(-1/2))
+full_num <- exp(opt_fit_num$value)*(det(solve(opt_fit_num$hessian))^(-1/2))
 
 exp_est <- full_num/full_den
-
-###
-### First try
-###
-
-log_posterior <- function(param, y) {
-  log_lik <- sum(dgamma(y, param["alpha"], param["beta"], log = T))  # the log likelihood
-  log_post <- log_lik + dnorm(param["alpha"], 0, 3, log = T) + dnorm(param["beta"], 0, 3, log = T)
-  log_post
-}
-
-#give a set of initial values
-initial_values <- c(alpha = 4, beta = 4)
-
-#fnscale is -1 so that it maximizes the log posterior likelihood
-opt_fit <- optim(initial_values, log_posterior, control = list(fnscale = -1), y = y, hessian = TRUE)
-
-
-#posterior estimates
-post_est <- opt_fit$par
-post_est
-summary(opt_fit)
-test <- opt_fit$hessian
+toc()
