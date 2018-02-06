@@ -182,13 +182,13 @@ for(k in n){
   save(sys_time2, file= "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/homework_1/data/prob_1c_sys_t2.Rdata")
 }
 
-prob_1 <- data.frame(n, sys_time)
+prob_1 <- data.frame(n, sys_time2)
 colnames(prob_1) <- c("n", "system_time")
 prob_1$n <- as.numeric(as.character(prob_1$n))
 prob_1$system_time <- as.numeric(as.character(prob_1$system_time))
 
 ggplot(prob_1) + geom_line(aes(x=n, y = system_time), size = 1.2)+
-  labs(title = "Computational Cost scaling with n", ylab = "wall time")
+  labs(title = "Computational Cost scaling with n", y = "wall time")
 
 
 
@@ -281,21 +281,23 @@ for(j in m){
 }
 dfb <- df
 
+load(file= "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/homework_1/data/prob_2a.Rdata")
+
 dfb2 <- as.data.frame(df)
 dfb2$d1 <- as.numeric(dfb2$d1)
 dfb2$d2 <- as.numeric(dfb2$d2)
 
 #expected value of d1 and d2
-mean(dfb2[,1]) # m=100: 9.69232    , m=1,000: 9.591571    , m=10,000: 9.537369
-mean(dfb2[,2]) # m=100: 6.271687   , m=1,000: 6.284819    , m=10,000: 6.324104
+mean(dfb2[,1]) 
+mean(dfb2[,2]) 
 
 #Monte Carlo Standard Errors
-sd(dfb2[,1])/sqrt(n)  # m=100: 5.546734   , m=1,000: 5.392687    , m=10,000: 5.470581
-sd(dfb2[,2])/sqrt(n)  # m=100: 3.493466   , m=1,000: 3.499043    , m=10,000: 3.52086
+sd(dfb2[,1])/sqrt(n)  
+sd(dfb2[,2])/sqrt(n)  
 
 #plot approximate density plots for d1, d2
-plot(density(dfb2[,1]), "Density of d1 at m = 1000")
-plot(density(dfb2[,2]), "Density of d2 at m = 1000")
+plot(density(-dfb2[,2]), "Density of d1 at m = 10,000")
+plot(density(-dfb2[,1]), "Density of d2 at m = 10,000")
 
 ###
 ###  2b)
@@ -323,6 +325,7 @@ for(j in m){
   df <- cbind(df,sm)
 }
 
+
 #expected value of d1 and d2
 mean(df[,1]) #m=100
 mean(df[,2]) #m=1000
@@ -330,8 +333,6 @@ mean(df[,2]) #m=1000
 #Monte Carlo Standard Errors
 sd(df[,1])/sqrt(n) #m=100
 sd(df[,2])/sqrt(n) #m=1000
-
-save(df, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/homework_1/data/prob_2b.Rdata")
 
 #plot approximate density plots for smallest eigen value
 plot(density(df[,1]), "Density of smallest eigen at m = 100")
@@ -506,7 +507,7 @@ prob_4 <- matrix(NA, nrow=4, ncol =3)
 length_ci <- matrix(NA, nrow=4, ncol =3)
 lambda <- c(2,2,50,50)
 n <- c(10,200,10,200)
-n_mc <- 1000000
+n_mc <- 10000000
 sum_1 <- NULL
 sum_2 <- NULL
 sum_3 <- NULL
@@ -520,7 +521,7 @@ for(i in 1:4){
   
   #i = 3
   for(j in 1:n_mc){
-    if(j %% 10000 == 0){ print (j)}
+    if(j %% 100000 == 0){ print (j)}
     
     #simulating poisson
     samp <- rpois(n= n[i], lambda = lambda[i])
@@ -530,9 +531,9 @@ for(i in 1:4){
     est_sd <- sd(samp)
     
     #creating the 3 confidence intervals
-    ci_1 <- cbind(est_mean - 1.96*est_mean/sqrt(n[i]), est_mean + 1.96*est_mean/sqrt(n[i]))
+    ci_1 <- cbind(est_mean - 1.96*sqrt(est_mean)/sqrt(n[i]), est_mean + 1.96*est_mean/sqrt(n[i]))
     ci_2 <- cbind(est_mean - 1.96*est_sd/sqrt(n[i]), est_mean + 1.96*est_sd/sqrt(n[i]))
-    ci_3 <- cbind(qpois(p=0.025, lambda = lambda[i]), qpois(p=0.975, lambda = lambda[i]))
+    ci_3 <- cbind(qpois(p=0.025, lambda = est_mean), qpois(p=0.975, lambda = est_mean))
     
     #indicator if the true lambda is inside the confidence interval
     ind1 <- c(lambda[i] > ci_1[1] & lambda[i] < ci_1[2])
@@ -607,11 +608,44 @@ rm(list=ls())
 #load data
 prob_5_dat <- read.table("C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/homework_1/data/prob_5_dat.txt", quote="\"", comment.char="")
 y <- c((t(as.matrix(prob_5_dat))))
+n <- length(y)
 
 set.seed(123)
 
 # Find unnormalized log posterior of the model
 #    given parameter vector pparam and vector of data points y
+
+
+denom <- function(param, y){
+  log_lik <- sum(dgamma(y, param["alpha"], param["beta"], log = T))  # the log likelihood
+  log_post <- log_lik + dnorm(param["alpha"], 0, 3, log = T) + dnorm(param["beta"], 0, 3, log = T)
+  denom <- log_post
+}
+
+
+
+num <- function(param, y){
+  log_lik <- sum(dgamma(y, param["alpha"], param["beta"], log = T))  # the log likelihood
+  log_post <- log_lik + dnorm(param["alpha"], 0, 3, log = T) + dnorm(param["beta"], 0, 3, log = T)
+  num <- log_post + log(param["alpha"]) + log(param["beta"])
+}
+
+
+#give a set of initial values
+initial_values <- c(alpha = 4, beta = 4)
+
+#fnscale is -1 so that it maximizes the log posterior likelihood
+opt_fit_den <- optim(initial_values, denom, control = list(fnscale = -1), y = y, hessian = TRUE)
+opt_fit_num <- optim(initial_values, num, control = list(fnscale = -1), y = y, hessian = TRUE)
+
+full_den <- exp(opt_fit_den$fit)*(det(solve(opt_fit_den$hessian))^(-1/2))
+full_num <- exp(opt_fit_num$fit)*(det(solve(opt_fit_num$hessian))^(-1/2))
+
+exp_est <- full_num/full_den
+
+###
+### First try
+###
 
 log_posterior <- function(param, y) {
   log_lik <- sum(dgamma(y, param["alpha"], param["beta"], log = T))  # the log likelihood
@@ -623,8 +657,11 @@ log_posterior <- function(param, y) {
 initial_values <- c(alpha = 4, beta = 4)
 
 #fnscale is -1 so that it maximizes the log posterior likelihood
-opt_fit <- optim(initial_values, log_posterior, control = list(fnscale = -1), y = y)
+opt_fit <- optim(initial_values, log_posterior, control = list(fnscale = -1), y = y, hessian = TRUE)
+
 
 #posterior estimates
 post_est <- opt_fit$par
 post_est
+summary(opt_fit)
+test <- opt_fit$hessian
