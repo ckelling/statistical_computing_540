@@ -69,13 +69,15 @@ sim_alg3 <- function(n, mu, Sigma){ #SVD
 #Calculate pdf for each X
 
 mvn_pdf <- function(X,C){
+  
   #C <- chol(Sigma)
   
   #as in class, r'r = (x-mu)Sigma^-1(x-mu), but mu is 0 in our case
   r <- solve(C)%*%X
+  #backsolve
   
   #the product of the diagonal elements Cii is the determinant of Sigma (n flops)
-  log_pdf <- -0.5*n*log(2*pi) - 0.5*sum(log(diag(C))) - 0.5*t(r)%*%r
+  log_pdf <- -0.5*n*log(2*pi) - sum(log(diag(C))) - 0.5*t(r)%*%r
   log_pdf
 }
 
@@ -108,7 +110,6 @@ n <- 1000
 phi <- 0.2
 mu <- rep(0,n)
 Sigma <- matrix(NA, nrow=n, ncol=n)
-solve(Sigma)
 #creating covariance matrix
 for(i in 1:nrow(Sigma)){
   for(j in 1:ncol(Sigma)){
@@ -144,7 +145,7 @@ toc()
 
 #plot a histogram of the values of pdf
 hist(pdf_eval, main = "Histogram of 100 evaluations of mvn pdf", xlab = "Evaluation of pdf")
-system.time(full_sim(n,mu,Sigma)) # 48 seconds
+system.time(full_sim(n,mu,Sigma)) # 40 seconds
 
 
 
@@ -406,7 +407,7 @@ rm(list=ls())
 #defining variables and data structures
 sigma <- 0.2
 M <- 10
-N <- c((1:10)*10,(2:10)*100, (3:10)*500)
+N <- c((1:20)*5,(2:10)*100, (3:10)*500)
 a1_time <- NULL
 a2_time <- NULL
 
@@ -458,22 +459,13 @@ alg_df <- as.data.frame(alg_df)
 alg_df$time <- as.numeric(as.character(alg_df$time))
 alg_df$N <- as.numeric(as.character(alg_df$N))
 
-#for zoom: [c(1:15, 30:43),]
+#[c(1:28, 39:65),] for zoom
 ggplot(alg_df) + geom_line(aes(x=N, y = time, col = algorithm), size = 1.2)+
-  labs(title = "N vs CPU for algorithm 1 and 2, zoomed in", ylab = "CPU time")
+  labs(title = "N vs CPU for algorithm 1 and 2", y = "CPU time")
 
 # (b) a plot of floating point operations (flops) versus N for algorithm 1 
 #     and algorithm 2
 
-#If the solve function uses cholesky decomposition, then it has n^3/3 flops
-#    So, for algorithm 1, we have N^3/3 flops
-#    
-#    For algorithm 2, it is more complicated. I will break it up into parts.
-#         solve(A) -- N^2 because diagonal
-#         solve(C) -- M^2 because diagonal
-#         solve(A) - solve(A)%*%U%*%solve((solve(C) + V%*%solve(A)%*%U))%*%V%*%solve(A)
-#          N      N^2   N  N^2 N^2   M^2    M      N^2     N   N^2   M^2  M^2   N
-#          =9N^2 + 4M^2
 
 flops_alg_1 <- function(N){
   flops <- N^3/3
@@ -481,7 +473,7 @@ flops_alg_1 <- function(N){
 }
 
 flops_alg_2 <- function(N, M){
-  flops <- N^2 + M^2 + 3*N*M + M^2 + N^2 + M^3/3 + (2*N-1)*M^2 + 6*(2*M-1)*N^2 + (2*M-1)*N*M 
+  flops <- N + M + 3*N*M + M^2 + N^2 + M^3/3 + (2*N-1)*M^2 + (2*M-1)*N^2 + (2*M-1)*N*M 
   #  N + M + 3*N*M + M^2 + N^2 + M^3/3 + (2*N-1)*M^2 + (2*M-1)*N^2 + (2*M-1)*N*M 
   flops
 }
@@ -496,9 +488,9 @@ flop_df <- as.data.frame(flop_df)
 flop_df$flops <- as.numeric(as.character(flop_df$flops))
 flop_df$N <- as.numeric(as.character(flop_df$N))
 
-#[c(1:10, 28:37),] for zoom
+#[c(1:28, 39:65),] for zoom
 ggplot(flop_df) + geom_line(aes(x=N, y = flops, col = algorithm), size = 1.2)+
-  labs(title = "N vs flops for algorithm 1 and 2", ylab = "flops")
+  labs(title = "N vs flops for algorithm 1 and 2", y = "flops")
 
 
 
@@ -624,7 +616,7 @@ set.seed(123)
 #    given parameter vector pparam and vector of data points y
 
 
-tic()
+
 denom <- function(param, y){
   log_lik <- sum(dgamma(y, param["alpha"], param["beta"], log = T))  # the log likelihood
   log_post <- log_lik + dnorm(param["alpha"], 0, 3, log = T) + dnorm(param["beta"], 0, 3, log = T)
@@ -643,6 +635,23 @@ num <- function(param, y){
 #give a set of initial values
 initial_values <- c(alpha = 3, beta = 0.5)
 
+tic()
+#fnscale is -1 so that it maximizes the log posterior likelihood
+opt_fit_den <- optim(initial_values, denom, control = list(fnscale = -1), y = y, hessian = TRUE)
+opt_fit_num <- optim(initial_values, num, control = list(fnscale = -1), y = y, hessian = TRUE)
+
+full_den <- exp(opt_fit_den$value)*(det(solve(opt_fit_den$hessian))^(-1/2))
+full_num <- exp(opt_fit_num$value)*(det(solve(opt_fit_num$hessian))^(-1/2))
+
+exp_est <- full_num/full_den
+toc()
+
+
+##
+## What if y has length 1,000? 2,000? Computation time?
+##
+y <- rep(y,10)
+tic()
 #fnscale is -1 so that it maximizes the log posterior likelihood
 opt_fit_den <- optim(initial_values, denom, control = list(fnscale = -1), y = y, hessian = TRUE)
 opt_fit_num <- optim(initial_values, num, control = list(fnscale = -1), y = y, hessian = TRUE)
