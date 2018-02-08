@@ -622,8 +622,8 @@ initial_values <- c(alpha = 3, beta = 0.5)
 
 tic()
 #fnscale is -1 so that it maximizes the log posterior likelihood
-opt_fit_den <- optim(initial_values, denom, control = list(fnscale = -1), y = y, hessian = TRUE)
-opt_fit_num <- optim(initial_values, num, control = list(fnscale = -1), y = y, hessian = TRUE)
+opt_fit_den <- optim(initial_values, denom, control = list(fnscale = -1), y = y, hessian = TRUE, method = c("L-BFGS-B"))
+opt_fit_num <- optim(initial_values, num, control = list(fnscale = -1), y = y, hessian = TRUE, method = c("L-BFGS-B"))
 
 full_den <- exp(opt_fit_den$value)*(det(solve(opt_fit_den$hessian))^(-1/2))
 full_num <- exp(opt_fit_num$value)*(det(solve(opt_fit_num$hessian))^(-1/2))
