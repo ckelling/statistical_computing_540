@@ -3,7 +3,9 @@
 ### STAT 540
 ### Homework #1
 ###
-### Created 1/29/2018 
+### Created 1/29/2018 for the first assigment, due 2/8/2018
+### The exercises mainly focus on analyzing computational complexity and simulation studies.
+### Also, there is an exercise on Laplace approximation.
 ### 
 
 library(MASS)
@@ -24,7 +26,7 @@ library(RSpectra)
 #     as above for n = 1000.
 #     Sigma_{ij} = exp(-|i-j|/phi),
 
-#Creating 3 different algorithms
+#Creating 3 different algorithms for simulating a multivariate normal
 
 sim_alg1 <- function(n, mu, Sigma){ #cholesky factorization
   X <- matrix(rnorm(n*M), nrow = M, ncol=n)
@@ -59,23 +61,16 @@ sim_alg3 <- function(n, mu, Sigma){ #SVD
   mv_n3 <- X%*%R + matrix(mu, nrow = M, ncol =n)
   return(mv_n3)
 }
-#https://books.google.com/books?id=cR1jDAAAQBAJ&pg=PA71&dq=generating+multivariate+normal+in+r&hl=en&sa=X&ved=0ahUKEwiCsaOW24PZAhVIj1kKHdQxDAsQ6AEIJzAA#v=onepage&q&f=false
-
 
 #Write your own code to also evaluate the multivariate normal pdf at each simulated value.
-#   https://www.cs.cmu.edu/~epxing/Class/10701-08s/recitation/gaussian.pdf
 #   mu is 0 in this case so I will take it out
 
 #Calculate pdf for each X
 
 mvn_pdf <- function(X,C){
-  
-  #C <- chol(Sigma)
-  
-  #as in class, r'r = (x-mu)Sigma^-1(x-mu), but mu is 0 in our case
+    #as in class, r'r = (x-mu)Sigma^-1(x-mu), but mu is 0 in our case
   r <- solve(C)%*%X
-  #backsolve
-  
+
   #the product of the diagonal elements Cii is the determinant of Sigma (n flops)
   log_pdf <- -0.5*n*log(2*pi) - sum(log(diag(C))) - 0.5*t(r)%*%r
   log_pdf
@@ -155,6 +150,7 @@ system.time(full_sim(n,mu,Sigma)) # 40 seconds
 ###      to handle. Make plots of how the computational cost scales with increasing n.
 ###
 
+# WARNING: THIS WILL TAKE QUITE SOME TIME, this was run on the cluster
 n <- c(1:5*1000,11:20*500)  
 sys_time2 <- NULL
 
@@ -180,19 +176,10 @@ for(k in n){
   time <- toc()
   time <- time$toc-time$tic
   sys_time2 <- c(sys_time2, time)
-  #save(sys_time2, file= "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/homework_1/data/prob_1c_sys_t2.Rdata")
 }
 
 
-load(file= "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/homework_1/data/prob_1c_sys_clust.Rdata")
-sys_time_1to14 <- sys_time2
-load(file= "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/homework_1/data/prob_1c_sys_clust2.Rdata")
-sys_time_15to20 <- sys_time2
-
-n <- c(1:5*1000, 11:14*500, 15:20*500)
-time_vec <- c(sys_time_1to14,sys_time_15to20)
-
-prob_1 <- data.frame(n, time_vec)
+prob_1 <- data.frame(n, sys_time2)
 colnames(prob_1) <- c("n", "system_time")
 prob_1$n <- as.numeric(as.character(prob_1$n))
 prob_1$system_time <- as.numeric(as.character(prob_1$system_time))
@@ -271,7 +258,7 @@ d2 <- lambda[2]-lambda[3]
 ###
 
 #now I will do this using Monte Carlo methods
-m <- c(10000)#,1000)#,10000) skip 10,000 for now
+m <- c(100, 1000 ,10000) 
 n <- 100 #Monte Carlo sample size
 d1 <- rep(NA,n)
 d2 <- rep(NA,n)
@@ -281,14 +268,12 @@ for(j in m){
   d1 <- rep(NA,n)
   d2 <- rep(NA,n)
   for(i in 1:n){
-    #if(i %% 100 == 0){ print (i)}
     print(i)
     R <- matrix(rnorm(j^2,0,1), nrow = j, ncol = j)
     Sigma <- R%*%t(R)
-    #eigen_decomp <- eigen(Sigma, only.values = T)
     eigen_decomp <- eigs(Sigma, 3, opts=list(retvec=FALSE))
+    
     #smallest <- eigs(Sigma, 1, which = "LM", sigma = 0)$values
-    # https://cran.r-project.org/web/packages/RSpectra/vignettes/introduction.html
     lambda <- eigen_decomp$values[1:3]
     d1_new <- lambda[1]-lambda[2]
     d2_new <- lambda[2]- lambda[3]
@@ -332,24 +317,22 @@ for(j in m){
     print(i)
     R <- matrix(rnorm(j^2,0,1), nrow = j, ncol = j)
     Sigma <- R%*%t(R)
-    #eigen_decomp <- eigen(Sigma, only.values = T)
-    #eigen_decomp <- eigs(Sigma, 3, opts=list(retvec=FALSE))
+
+    # reference:# https://cran.r-project.org/web/packages/RSpectra/vignettes/introduction.html
     smallest <- eigs(Sigma, 1, which = "LM", sigma = 0,opts=list(retvec=FALSE))$values
-    # https://cran.r-project.org/web/packages/RSpectra/vignettes/introduction.html
+
     sm[i] <- smallest[1]
   }
   df <- cbind(df,sm)
 }
 
 #expected value of d1 and d2
-mean(df[,1]) #m=100
-mean(df[,2]) #m=1000
+mean(df[,1]) 
+mean(df[,2]) 
 
 #Monte Carlo Standard Errors
-sd(df[,1])/sqrt(n) #m=100
-sd(df[,2])/sqrt(n) #m=1000
-
-save(df, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/homework_1/data/prob_2b.Rdata")
+sd(df[,1])/sqrt(n) 
+sd(df[,2])/sqrt(n) 
 
 #plot approximate density plots for smallest eigen value
 plot(density(df[,1]), "Density of smallest eigen at m = 100")
@@ -370,14 +353,13 @@ for(j in m){
   print(paste(j, "**********************"))
   sm <- rep(NA,n)
   for(i in 1:n){
-    #if(i %% 100 == 0){ print (i)}
+    
     print(i)
     R <- matrix(rnorm(j^2,0,1), nrow = j, ncol = j)
     Sigma <- R%*%t(R)
-    #eigen_decomp <- eigen(Sigma, only.values = T)
-    #eigen_decomp <- eigs(Sigma, 3, opts=list(retvec=FALSE))
+
     smallest <- eigs(Sigma, 1, which = "LM", sigma = 0,opts=list(retvec=FALSE))$values
-    # https://cran.r-project.org/web/packages/RSpectra/vignettes/introduction.html
+
     sm[i] <- smallest[1]
   }
   exp_val <- mean(sm)
@@ -397,6 +379,7 @@ ggplot(prob_2) + geom_line(aes(x=m, y = expected_value), size = 1.2)+
 #(ii) Report your grid of m values. (iii) What is the largest m value for which you 
 #     approximated the expectation?
 
+#included in report
 
 ###
 ### Problem 3
@@ -433,7 +416,7 @@ alg_2 <- function(A, U, C, V){                    #FLOPS
   part_1 <- A_inv%*%U                             # NxM  
   part_2 <- solve((solve(C) + V%*%A_inv%*%U))     # M, MxN, M^2, (2N-1)M^2, M^3/3  
   part_3 <- V%*%A_inv                             # MxN  
-  inv_2 <- A_inv - part_1%*%part_2%*%part_3       # N^2, (2M-1)NM, (2M-1)NM      
+  inv_2 <- A_inv - part_1%*%part_2%*%part_3       # N^2, (2M-1)NM, (2M-1)N^2      
   inv_2
   
   #inv_2 <- solve(A) - solve(A)%*%U%*%solve((solve(C) + V%*%solve(A)%*%U))%*%V%*%solve(A)
@@ -443,7 +426,6 @@ alg_2 <- function(A, U, C, V){                    #FLOPS
 #using both algorithms for many values of N
 for(i in N){
   print(i)
-  #i <- N[1]
   norm_vec <- rnorm(i*M, 0,1)
   K <- matrix(norm_vec, nrow = i, ncol = M)
   
@@ -453,8 +435,7 @@ for(i in N){
   C <- diag(1, M)
   U <- K
   V <- t(K)
-  
-  #sum(A+ U%*%C%*%V == Sig) == nrow(Sig)*ncol(Sig) #these are the same matrix
+
   
   alg1_time <- system.time(alg_1(Sig))[3]
   a1_time <- c(a1_time, alg1_time)
@@ -484,7 +465,6 @@ flops_alg_1 <- function(N){
 
 flops_alg_2 <- function(N, M){
   flops <- N + M + 3*N*M + M^2 + N^2 + M^3/3 + (2*N-1)*M^2 + (2*M-1)*N^2 + (2*M-1)*N*M 
-  #  N + M + 3*N*M + M^2 + N^2 + M^3/3 + (2*N-1)*M^2 + (2*M-1)*N^2 + (2*M-1)*N*M 
   flops
 }
 
@@ -576,12 +556,7 @@ for(i in 1:4){
     }
     
   }
-  #can do histograms to see distribution
-  #hist(len_ci1, main = expression(paste("CI with sample mean, " lambda " = 2")))
-  #hist(len_ci2, main = expression(paste("CI with sample std dev, " lambda " = 2")))
-  #hist(len_ci1, main = expression(paste("CI with sample mean, " lambda " = 50")))
-  #hist(len_ci2, main = expression(paste("CI with sample std dev, " lambda " = 50")))
-  
+
   #storing coverate (p)
   cov_1 <- sum_1/n_mc
   cov_2 <- sum_2/n_mc
