@@ -155,7 +155,7 @@ system.time(full_sim(n,mu,Sigma)) # 40 seconds
 ###      to handle. Make plots of how the computational cost scales with increasing n.
 ###
 
-n <- c(1:5*1000,11:14*500)  #1:5*1000
+n <- c(1:5*1000,11:20*500)  
 sys_time2 <- NULL
 
 for(k in n){
@@ -180,24 +180,35 @@ for(k in n){
   time <- toc()
   time <- time$toc-time$tic
   sys_time2 <- c(sys_time2, time)
-  save(sys_time2, file= "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/homework_1/data/prob_1c_sys_t2.Rdata")
+  #save(sys_time2, file= "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/homework_1/data/prob_1c_sys_t2.Rdata")
 }
 
-prob_1 <- data.frame(n, sys_time2)
+
+load(file= "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/homework_1/data/prob_1c_sys_clust.Rdata")
+sys_time_1to14 <- sys_time2
+load(file= "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/homework_1/data/prob_1c_sys_clust2.Rdata")
+sys_time_15to20 <- sys_time2
+
+n <- c(1:5*1000, 11:14*500, 15:20*500)
+time_vec <- c(sys_time_1to14,sys_time_15to20)
+
+prob_1 <- data.frame(n, time_vec)
 colnames(prob_1) <- c("n", "system_time")
-prob_1$scale <- "actual_comp_time"
+prob_1$n <- as.numeric(as.character(prob_1$n))
+prob_1$system_time <- as.numeric(as.character(prob_1$system_time))
 
-prob1_b <- cbind(m, m^3)
-colnames(prob1_b) <- c("n", "system_time")
-prob1_b$scale <- "m^3"
+prob1_b <- cbind(n, n^3)
+prob1_b <- as.data.frame(prob1_b)
+colnames(prob1_b) <- c("n", "flops")
+prob1_b$n <- as.numeric(as.character(prob1_b$n))
+prob1_b$flops <- as.numeric(as.character(prob1_b$flops))
 
-prob_1_full <- rbind(prob_1, prob1_b)
-prob_1_full$n <- as.numeric(as.character(prob_1_full$n))
-prob_1_full$system_time <- as.numeric(as.character(prob_1_full$system_time))
 
-ggplot(prob_1_full) + geom_line(aes(x=n, y = system_time, color = scale), size = 1.2)+
+ggplot(prob_1[1:14,]) + geom_line(aes(x=n, y = system_time), size = 1.2)+geom_point(aes(x=n, y = system_time),size=2,col="blue")+
   labs(title = "Computational Cost scaling with n", y = "wall time")
 
+ggplot(prob1_b[1:14,]) + geom_line(aes(x=n, y = flops), size = 1.2)+geom_point(aes(x=n, y = flops),size=2,col="blue")+
+  labs(title = "Flops scaling with n", y = "flops")
 
 
 ###
@@ -217,22 +228,21 @@ ggplot(prob_1_full) + geom_line(aes(x=n, y = system_time, color = scale), size =
 ###
 
 prob_1_flops <- function(n,M){
-  flops_sim <- n^3/3+ (2*n-1)*M*n
+  flops_sim <- n^3/3+ (2*n-1)*M*n + n*M
   flops_eval_pdf <- M*(3*n+6)
   tot_flops <- flops_sim + flops_eval_pdf
   return(tot_flops) 
 }
 
-flop_alg <- prob_1_flops(N,100)
+flop_alg <- prob_1_flops(n,100)
 
 flop_df <- data.frame(n, flop_alg)
 colnames(flop_df) <- c("n", "flops")
 flop_df$flops <- as.numeric(as.character(flop_df$flops))
 flop_df$n <- as.numeric(as.character(flop_df$n))
 
-#[c(1:10, 28:37),] for zoom
-ggplot(flop_df) + geom_line(aes(x=n, y = flops), size = 1.2)+
-  labs(title = "n vs flops for full algorithm", ylab = "flops")
+ggplot(flop_df[1:14,]) + geom_line(aes(x=n, y = flops), size = 1.2)+geom_point(aes(x=n, y = flops),size=2,col="blue")+
+  labs(title = "n vs flops for full algorithm", y = "flops")
 
 
 
@@ -650,14 +660,29 @@ toc()
 ##
 ## What if y has length 1,000? 2,000? Computation time?
 ##
-y <- rep(y,10)
-tic()
-#fnscale is -1 so that it maximizes the log posterior likelihood
-opt_fit_den <- optim(initial_values, denom, control = list(fnscale = -1), y = y, hessian = TRUE)
-opt_fit_num <- optim(initial_values, num, control = list(fnscale = -1), y = y, hessian = TRUE)
+prob5_t <- NULL
+n <- c((1:10)*1000, (2:10)*10000, (2:10)*100000, (2:3)*1000000)
+for (i in n){
+  y <- runif(n = i, min = 1, max = 16)
+  print(paste(i, "********************"))
+  tic()
+  #fnscale is -1 so that it maximizes the log posterior likelihood
+  opt_fit_den <- optim(initial_values, denom, control = list(fnscale = -1), y = y, hessian = TRUE)
+  print(paste("done with denominator"))
+  opt_fit_num <- optim(initial_values, num, control = list(fnscale = -1), y = y, hessian = TRUE)
+  
+  full_den <- exp(opt_fit_den$value)*(det(solve(opt_fit_den$hessian))^(-1/2))
+  full_num <- exp(opt_fit_num$value)*(det(solve(opt_fit_num$hessian))^(-1/2))
+  
+  exp_est <- full_num/full_den
+  time <- toc()
+  time <- time$toc-time$tic
+  prob5_t <- c(prob5_t, time)
+}
 
-full_den <- exp(opt_fit_den$value)*(det(solve(opt_fit_den$hessian))^(-1/2))
-full_num <- exp(opt_fit_num$value)*(det(solve(opt_fit_num$hessian))^(-1/2))
+prob_5 <- data.frame(n, prob5_t)
+colnames(prob_5) <- c("n", "system_time")
 
-exp_est <- full_num/full_den
-toc()
+
+ggplot(prob_5) + geom_line(aes(x=n, y = system_time), size = 1.2)+
+  labs(title = "Computational Cost scaling with n", y = "wall time", x = "length of y")
