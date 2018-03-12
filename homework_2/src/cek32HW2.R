@@ -15,6 +15,7 @@ library(ggplot2)
 library(xtable)
 library(tictoc)
 library(RSpectra)
+library(data.table)
 
 ###
 ### Laplace Approximation
@@ -24,7 +25,7 @@ rm(list=ls())
 
 #load data, make sure to change to READ FROM WEBSITE *******
 #http://personal.psu.edu/muh10/540/Rcode/hw1.dat
-prob_5_dat <- read.table("C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/homework_1/data/prob_5_dat.txt", quote="\"", comment.char="")
+prob_5_dat <- fread("http://personal.psu.edu/muh10/540/Rcode/hw1.dat")
 y <- c((t(as.matrix(prob_5_dat))))
 n <- length(y)
 
@@ -48,7 +49,6 @@ num_a <- function(param, y){
   num <- log_post + log(param["alpha"])# + log(param["beta"])
 }
 
-y <- rep(2,200)
 #give a set of initial values
 initial_values <- c(alpha = 3, beta = 0.5)
 n_samp <- 10
@@ -88,10 +88,57 @@ lap_err_b <- sd(exp_est_b)/sqrt(n_samp)
 ## The data for this problem are available here: http://personal.psu.edu/muh10/540/Rcode/hw1.dat
 
 #(a) Use importance sampling to approximate the expectations. Provide pseudocode, including relevant
-# distributions. Is the vaability of your Monte Carlo approximation guaranteed to be finite? 
-# Explain your answer. Provide Monte Criarlo standard errors for your estimates.
+# distributions. Is the variability of your Monte Carlo approximation guaranteed to be finite? 
+# Explain your answer. Provide Monte Carlo standard errors for your estimates.
 
+n <- 10000
+n.rep <- 1000
+IS.estimates <- rep(NA, n.rep)
+a_init <- 3
+b_init <- 3
 
+for (i in 1:n.rep) {
+  Y.samp <- rexp(n,rate=2)+8
+  IS.estimates[i] <- mean((Y.samp > 8) * (dweibull(Y.samp, shape=a,scale=b)) / dexp(Y.samp-8, rate=2))
+}
+
+tic()
+for (i in 1:n.rep) {
+  # sample size
+  n <- length(y)
+  # posterior derived in writeup
+  log.posterior <- log(beta^((n*alpha)/(gamma(alpha)^n) + sum(log(y^(alpha-1))) -beta*sum(y)+ alpha^2+beta^2
+  # parameters for the trial distribution
+  a = a_init; b = b_init
+  
+  # log trial density, g
+  log.g <- function(t) dgamma(t,a,b,log=TRUE)
+  # log importance function
+  log.w <- function(t) log.posterior(t) - log.g(t)
+
+  # generate from the trial distribution
+  res <- 1000
+  U <- rgamma(res, a, b)
+  # calculate the list of log.w values
+  LP <-  log.w(U)
+
+  # importance sampling estimate
+  I <- mean( exp(LP)*U )/mean(exp(LP))
+  
+  # calculate ESS
+  ESS <- mean( ( (exp(LP)/mean(exp(LP))) - 1)^2 )
+  # calculate s.e. of the IS estimate
+  Z = exp(LP)/mean(exp(LP))
+  sig.sq <- (1/res)*sum( (Z-I)^2 )
+  se <- sqrt( sig.sq/res )
+}
+imp_time <- toc()
+imp_time <- imp_time$toc-imp_time$tic
+
+imp_mean_a <- mean(IS.estimates)
+imp_mean_b <- mean(IS.estimates)
+imp_err_a <- mcse(IS.estimates, method = "tukey")$se
+imp_err_b <- mcse(IS.estimates, method = "tukey")$se
 
 #(b) Construct an all-at-once Metropolis-Hastings (AMH) algorithm to approximate the posterior 
 # expectation of a; b. Provide pseudocode for your algorithm. This should include any distributions 
@@ -99,18 +146,207 @@ lap_err_b <- sd(exp_est_b)/sqrt(n_samp)
 # That is, discuss stopping criteria (how you determined chain length), the number of starting 
 # values you tried, how you obtained initial values etc.
 
+proposal=function(x1,x2,v1,v2){
+  return(rmvnorm(1, mean = c(x1, x2), sigma=c(v1,v2)*diag(2)))
+}
+
+target=function(alpha,beta){
+  if(alpha<0){
+    return(-Inf)
+  }else if(beta<0){
+    return(-Inf)
+  }
+  else{
+    return(log(beta^((n*alpha)/(gamma(alpha)^n) + sum(log(y^(alpha-1))) -beta*sum(y)+ alpha^2+beta^2)
+  }
+}
+
+
+#Setting intial values and initializing variables
+n=1500
+mcmc.samp.a=rep(NA,n)
+mcmc.samp.b=rep(NA,n)
+lambda=3
+beta=3
+mcmc.samp.a[1]=alpha
+mcmc.samp.b[1]=beta
+
+#tuning parameter
+set.seed(148752)
+v1=0.2
+v2=7
+
+
+for(i in 1:n){
+  if(i %% 100 == 0) cat("Starting iteration", i, "\n")
+  #proposal=function(x1,x2,v)
+  #target=function(lambda,beta)
+  x.star=proposal(alpha,beta,v1,v2)
+  x1.star=x.star[1]
+  x2.star=x.star[2]
+  
+  log.num=target(x1.star,x2.star)
+  log.denom=target(alpha,beta)
+  r=exp(log.num-log.denom)
+  
+  if(runif(1)<r){
+    alpha=x1.star
+    beta=x2.star
+  }
+ vmh.mcmc.samp.a[i]=alpha
+  mcmc.samp.b[i]=beta
+}
+amh_time <- toc()
+amh_time <- amh_time$toc-amh_time$tic
+
+## Diagnostics
+mean(!duplicated(mcmc.samp.a)) # Acceptance rate
+mean(!duplicated(mcmc.samp.b))
+
+plot(mcmc.samp.a, type = "l")
+plot(mcmc.samp.b, type = "l")
+
+burnin <- 500
+mcmc.samp.a <-vmh.mcmc.samp.a[-(1:burnin)]
+mcmc.samp.b <- mcmc.samp.b[-(1:burnin)]
+
+plot(mcmc.samp.a, type = "l")
+plot(mcmc.samp.b, type = "l")
+
+acf(mcmc.samp.a)
+acf(mcmc.samp.b)
+
+library(coda)
+effectiveSize(mcmc.samp.a)
+effectiveSize(mcmc.samp.b)
+
+amh_mean_a <- mean(mcmc.samp.a)
+amh_mean_b <- mean(mcmc.samp.b)
+amh_err_a <- mcse(mcmc.samp.a, method = "tukey")$se
+amh_err_b <- mcse(mcmc.samp.b, method = "tukey")$se
+
+
 
 #(c) Construct a variable-at-a-time Metropolis-Hastings (VMH) algorithm. You need to provide the 
 # same level of detail here as you did for the previous algorithm.
+
+# Problem 2
+# Part b
+proposal1=function(x1,v1){
+  return(rnorm(1, mean = x1, sd = sqrt(v1)))
+}
+
+proposal2=function(x2,v2){
+  return(rnorm(1, mean = x2, sd = sqrt(v2)))
+}
+
+target1=function(alpha,beta){
+  if(alpha<0){
+    return(-Inf)
+  }else if(beta<0){
+    return(-Inf)
+  }
+  else{
+    return(log(beta^((n*alpha)/(gamma(alpha)^n) + sum(log(y^(alpha-1))) -beta*sum(y)+ alpha^2)
+  }
+}
+
+
+target2=function(alpha,beta){
+  if(alpha<0){
+    return(-Inf)
+  }else if(beta<0){
+    return(-Inf)
+  }
+  else{
+    return(log(beta^((n*alpha)/(gamma(alpha)^n) + sum(log(y^(alpha-1))) -beta*sum(y)+ beta^2)
+  }
+}
+
+
+#Setting intial values and initializing variables
+n=1500
+vmh.mcmc.samp.a=rep(NA,n)
+vmh.mcmc.samp.b=rep(NA,n)
+lambda=3
+beta=3
+vmh.mcmc.samp.a[1]=alpha
+vmh.mcmc.samp.b[1]=beta
+
+#tuning parameter
+set.seed(89)
+#90
+v1=3
+v2=3
+#32- 174 ESS, 42%
+
+tic()
+for(i in 1:n){
+  if(i %% 100 == 0) cat("Starting iteration", i, "\n")
+  #proposal=function(x1,v)
+  #target=function(lambda,beta)
+  beta.star=proposal1(beta,v)
+  log.num=target(alpha,beta.star)
+  log.denom=target(alpha,beta)
+  r=exp(log.num-log.denom)
+  if(runif(1)<r){
+    beta=beta.star
+  }
+  
+  alpha.star=proposal1(alpha,v)
+  log.num=target(alpha.star,beta)
+  log.denom=target(alpha,beta)
+  r=exp(log.num-log.denom)
+  if(runif(1)<r){
+    alpha=alpha.star
+  }
+  
+ vmh.mcmc.samp.a[i]=alpha
+ vmh.mcmc.samp.b[i]=beta
+}
+
+vmh_time <- toc()
+vhm_time <- vmh_time$toc-vmh_time$tic
+
+## Diagnostics
+# Acceptance rate
+mean(!duplicated(vmh.mcmc.samp.a))
+mean(!duplicated(vmh.mcmc.samp.b))
+
+plot(vmh.mcmc.samp.a, type = "l")
+plot(vmh.mcmc.samp.b, type = "l")
+
+burnin <- 500
+vmh.mcmc.samp.a <-vmh.mcmc.samp.a[-(1:burnin)]
+vmh.mcmc.samp.b <- mcmc.samp.b[-(1:burnin)]
+
+plot(vmh.mcmc.samp.a, type = "l")
+plot(vmh.mcmc.samp.b, type = "l")
+
+acf(vmh.mcmc.samp.a)
+acf(vmh.mcmc.samp.b)
+
+library(coda)
+effectiveSize(vmh.mcmc.samp.a)
+effectiveSize(vmh.mcmc.samp.b)
+
+vmh_mean_a <- mean(vmh.mcmc.samp.a)
+vmh_mean_b <- mean(vmh.mcmc.samp.b)
+vmh_err_a <- mcse(vmh.mcmc.samp.a, method = "tukey")$se
+vmh_err_b <- mcse(vmh.mcmc.samp.b, method = "tukey")$se
 
 
 #(d) Provide a table with all approximations along with any error approximations, as well as the 
 # computational time taken by the algorithms. (To make this easy to read, the rows of your table 
 # should correspond to algorithms.)
 lap_col <- c(lap_mean_a, lap_mean_b, lap_err_a, lap_err_b, lap_time)
+imp_col <- c(imp_mean_a, imp_mean_b, imp_err_a, imp_err_b, imp_time)
+amh_col <- c(amh_mean_a, amh_mean_b, amh_err_a, amh_err_b, amh_time)
+vmh_col <- c(vmh_mean_a, vmh_mean_b, vmh_err_a, vmh_err_b, vmh_time)
 
-full_df <- cbind(lap_col)
+full_df <- cbind(lap_col, imp_col, amh_col, vmh_col)
 rownames(full_df) <- c("a_est", "b_est", "a_err", "b_err", "approx_time")
+colnames(full_df) <- c("Laplace", "Imp Samp", "AMH", "VMH")
 
 
 #(e) Compare the efficiency of the four algorithms {importance sampling, AMH, VMH, and the
@@ -120,6 +356,20 @@ rownames(full_df) <- c("a_est", "b_est", "a_err", "b_err", "approx_time")
 # have to think carefully about this. Be sure to clearly explain why your approaches for comparing
 # the algorithms are reasonable.
 
+#Laplace
+
+#IMP
+effectiveSize(IS.estimates.a)
+effectiveSize(IS.estimates.b)
+
+
+#AMH
+effectiveSize(mcmc.samp.a)
+effectiveSize(mcmc.samp.b)
+
+#VMH
+effectiveSize(vmh.mcmc.samp.a)
+effectiveSize(vmh.mcmc.samp.b)
 
 #(f) Which algorithm would you recommend for this problem? How would you order the algorithms
 # in terms of ease of implemention?
@@ -143,31 +393,55 @@ rownames(full_df) <- c("a_est", "b_est", "a_err", "b_err", "approx_time")
 # experiment are as follows. The data on the lightbulb lifetimes for the bulbs that stopped 
 # working by tau are on the website. 
 # 
-# (Assume that the remaining bulbs were still working at time tau.) Let the prior for tau be
+# (Assume that the remaining bulbs were still working at time tau.) Let the prior for theta be
 # Gamma(1,100) (with parameterization so it has mean 100 and variance 100^2).
 
 #load data
-#http://personal.psu.edu/muh10/540/hwdir/bulbs.dat
+bulb_dat <- fread("http://personal.psu.edu/muh10/540/hwdir/bulbs.dat")
+bulb_dat <- c((t(as.matrix(bulb_dat))))
 
 #(a) Using auxiliary variables for the missing lightbulb data, construct an MCMC algorithm 
-# to approximate the posterior distribution of tau. Provide the same level of detail about 
+# to approximate the posterior distribution of theta. Provide the same level of detail about 
 # your MCMC algorithm as you did in the previous problem.
 
+#prior for theta is Gamma(1,100)
+#lifetime of lightbulbs are iid exp(theta)
+#let tau be 184 days and m = 100
+times <- c((t(as.matrix(bulb_dat))))
+
+for( i in 1:n.rep){
+  
+  
+}
 
 
 #b) Construct a different MCMC algorithm, this time without using auxiiliary variables/data 
 # augmentation. Again, provide details.
 
+# This time, I will approximate the posterior directly, without data augmentation.
+ 
+#prior for theta is Gamma(1,100)
+#lifetime of lightbulbs are iid exp(theta)
+#let tau be 184 days and m = 100
+#posterior distribution of theta
+
+n.rep <- 1000
+n <- length(bulb_dat)
+
+mcmc_wo_aux <- rgamma(n.rep, shape = n+1, scale = (sum(bulb_dat)+ 1/100)^(-1))
+hist(mcmc_wo_aux)
+mean(mcmc_wo_aux)
+
 
 #(c) Overlay posterior density plot approximations for the two algorithms. Provide a table 
 # that shows the posterior mean approximations for tau along with MCMC standard errors.
-plot(density(df[,1]), "Density with auxiliarly variables")
-lines(density(df[,2]), "Density without auxiliarly variables")
+plot(density(mcmc_w_aux), "Density with auxiliarly variables")
+lines(density(mcmc_wo_aux))
 
-mean_aux <- mean(df[,1])
-mean_wo_aux <- mean(df[,2])
-se_aux <- sd(df[,1])/sqrt(n_samp)
-se_wo_aux <- sd(df[,2])/sqrt(n_samp)
+mean_aux <- mean(mcmc_w_aux])
+mean_wo_aux <- mean(mcmc_wo_aux)
+se_aux <- sd(mcmc_w_aux)/sqrt(n.samp)
+se_wo_aux <- sd(mcmc_wo_aux)/sqrt(n.samp)
 
 #(d) For the auxiliary variable method, plot the approximate posterior pdf for one of the 
 # "missing" lightbulbs, then overlay the approximate posterior pdfs for a lightbulb made 
