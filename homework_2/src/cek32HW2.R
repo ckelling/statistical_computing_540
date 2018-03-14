@@ -1,10 +1,11 @@
 ###
 ### Claire Kelling
 ### STAT 540
-### Homework #1
+### Homework #2
 ###
-### Created 2/21/2018 for the second assigment, due 3/8/2018
-### The exercises mainly focus on ??
+### Created 2/21/2018 for the second assigment, due 3/15/2018
+### The exercises mainly focus on algorithms for approximating using Bayesian Inference.
+### We also use data augmentation and auxiliary variables in this exercise.
 ### 
 
 library(MASS)
@@ -29,54 +30,53 @@ prob_5_dat <- fread("http://personal.psu.edu/muh10/540/Rcode/hw1.dat")
 y <- c((t(as.matrix(prob_5_dat))))
 n <- length(y)
 
-set.seed(123)
+rm(prob_5_dat)
 
-denom <- function(param, y){
-  log_lik <- sum(dgamma(y, param["alpha"], param["beta"], log = T))  # the log likelihood
-  log_post <- log_lik + dnorm(param["alpha"], 0, 3, log = T) + dnorm(param["beta"], 0, 3, log = T)
-  denom <- log_post
+#adopting code from posted solution to homework 1, assuming it is more efficient than mine
+#setting variables for laplace
+sum.y = sum(y)
+log.sum.y = sum(log(y))
+alpha.num = function(ab){
+  a = ab[1]
+  b = ab[2]
+  return( -(log(a)+n*a*log(b) - n*lgamma(a) + a*log.sum.y - b*sum.y -
+              (1/6)*a^2 - (1/6)*b^2 ) )
+}
+beta.num = function(ab){
+  a = ab[1]
+  b = ab[2]
+  return( -(log(b)+n*a*log(b) - n*lgamma(a) + a*log.sum.y - b*sum.y -
+              (1/6)*a^2 - (1/6)*b^2 ) )
+}
+denom = function(ab){
+  a = ab[1]
+  b = ab[2]
+  return( -(n*a*log(b) - n*lgamma(a) + a*log.sum.y - b*sum.y -
+              (1/6)*a^2 - (1/6)*b^2 ) )
 }
 
-num_b <- function(param, y){
-  log_lik <- sum(dgamma(y, param["alpha"], param["beta"], log = T))  # the log likelihood
-  log_post <- log_lik + dnorm(param["alpha"], 0, 3, log = T) + dnorm(param["beta"], 0, 3, log = T)
-  num <- log_post + log(param["beta"])# + log(param["beta"])
-}
-
-num_a <- function(param, y){
-  log_lik <- sum(dgamma(y, param["alpha"], param["beta"], log = T))  # the log likelihood
-  log_post <- log_lik + dnorm(param["alpha"], 0, 3, log = T) + dnorm(param["beta"], 0, 3, log = T)
-  num <- log_post + log(param["alpha"])# + log(param["beta"])
-}
-
-#give a set of initial values
-initial_values <- c(alpha = 3, beta = 0.5)
-n_samp <- 10
+n.samp <- 10000
+a.hat <- rep(NA, n.samp)
+b.hat <- rep(NA, n.samp)
 
 tic()
-exp_est_a <- rep(NA, n_samp)
-exp_est_b <- rep(NA, n_samp)
+a.num.opt = optim(c(0.01,0.01), alpha.num, hessian=T, method="L-BFGS-B", lower=c(0,0))
+b.num.opt = optim(c(0.01,0.01), beta.num, hessian=T, method="L-BFGS-B", lower=c(0,0))
+den.opt = optim(c(0.01,0.01), denom, hessian=T, method="L-BFGS-B", lower=c(0,0))
 
-for(i in 1:n_samp){
-  #fnscale is -1 so that it maximizes the log posterior likelihood
-  opt_fit_den <- optim(initial_values, denom, control = list(fnscale = -1), y = y, hessian = TRUE, method = c("L-BFGS-B"))
-  opt_fit_num_a <- optim(initial_values, num_a, control = list(fnscale = -1), y = y, hessian = TRUE, method = c("L-BFGS-B"))
-  opt_fit_num_b <- optim(initial_values, num_b, control = list(fnscale = -1), y = y, hessian = TRUE, method = c("L-BFGS-B"))
-  
-  
-  full_den <- exp(opt_fit_den$value)*(det(solve(opt_fit_den$hessian))^(-1/2))
-  full_num_a <- exp(opt_fit_num_a$value)*(det(solve(opt_fit_num_a$hessian))^(-1/2))
-  full_num_b <- exp(opt_fit_num_b$value)*(det(solve(opt_fit_num_b$hessian))^(-1/2))
-  
-  exp_est_a[i] <- full_num_a/full_den
-  exp_est_b[i] <- full_num_b/full_den
-}
+a.num = exp(-alpha.num(a.num.opt$par))*det(a.num.opt$hessian)^{-1/2}
+b.num = exp(-beta.num(b.num.opt$par))*det(b.num.opt$hessian)^{-1/2}
+den = exp(-denom(den.opt$par))*det(den.opt$hessian)^{-1/2}
+
+a.hat = a.num/den
+b.hat = b.num/den
+#timing and estimates
 lap_time <- toc()
 lap_time <- lap_time$toc-lap_time$tic
-lap_mean_a <- mean(exp_est_a)
-lap_err_a <- sd(exp_est_a)/sqrt(n_samp)
-lap_mean_b <- mean(exp_est_b)
-lap_err_b <- sd(exp_est_b)/sqrt(n_samp)
+lap_mean_a <- mean(a.hat)
+lap_err_a <- sd(a.hat)/sqrt(n.samp)
+lap_mean_b <- mean(b.hat)
+lap_err_b <- sd(b.hat)/sqrt(n.samp)
 
 
 ####
@@ -91,16 +91,37 @@ lap_err_b <- sd(exp_est_b)/sqrt(n_samp)
 # distributions. Is the variability of your Monte Carlo approximation guaranteed to be finite? 
 # Explain your answer. Provide Monte Carlo standard errors for your estimates.
 
-n <- 10000
-n.rep <- 1000
-IS.estimates <- rep(NA, n.rep)
+n <- 1000
+n.rep <- 10
 a_init <- 3
-b_init <- 3
+b_init <- 0.5
+IS.estimates <- rep(NA, n.rep)
 
+#http://dept.stat.lsa.umich.edu/~jasoneg/Stat406/lab7.pdf
 for (i in 1:n.rep) {
-  Y.samp <- rexp(n,rate=2)+8
-  IS.estimates[i] <- mean((Y.samp > 8) * (dweibull(Y.samp, shape=a,scale=b)) / dexp(Y.samp-8, rate=2))
+    # sample size
+    n <- length(y)
+    # posterior derived in writeup
+    log.posterior <- function(alpha) ((n*alpha)*log(beta) - n*log(gamma(alpha)) + sum(log(y^(alpha-1))) -beta*sum(y)+ alpha^2+beta^2)
+    # parameters for the trial distribution
+    alpha = a_init
+    beta = b_init
+   
+     # log trial density, g
+     log.g <- function(t) dgamma(t,alpha,beta,log=TRUE)
+     # log importance function
+     log.w <- function(t) log.posterior(t) - log.g(t)
+     
+     # generate from the trial distribution
+     res <- 1000
+     U <- rgamma(res, alpha, beta)
+     # calculate the list of log.w values
+     LP <-  log.w(U)
+     
+     # importance sampling estimate
+     IS.estimates[i] <- mean( exp(LP)*U )/mean(exp(LP))
 }
+
 
 tic()
 for (i in 1:n.rep) {
