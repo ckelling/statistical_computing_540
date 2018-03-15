@@ -16,6 +16,7 @@ library(ggplot2)
 library(xtable)
 library(tictoc)
 library(RSpectra)
+library(mcmcse)
 library(data.table)
 
 ###
@@ -56,8 +57,8 @@ denom = function(ab){
 }
 
 n.samp <- 10000
-a.hat <- rep(NA, n.samp)
-b.hat <- rep(NA, n.samp)
+#a.hat <- rep(NA, n.samp)
+#b.hat <- rep(NA, n.samp)
 
 tic()
 a.num.opt = optim(c(0.01,0.01), alpha.num, hessian=T, method="L-BFGS-B", lower=c(0,0))
@@ -91,68 +92,72 @@ lap_err_b <- sd(b.hat)/sqrt(n.samp)
 # distributions. Is the variability of your Monte Carlo approximation guaranteed to be finite? 
 # Explain your answer. Provide Monte Carlo standard errors for your estimates.
 
-n <- 1000
-n.rep <- 10
+#n_exp <- 1000
+n.samp <- 1000
 a_init <- 3
-b_init <- 0.5
-IS.estimates <- rep(NA, n.rep)
+b_init <- 0.002
+IS.estimates.a <- rep(NA, n.samp)
+IS.estimates.b <- rep(NA, n.samp)
+IS.estimates.a[1] <- a.hat
+IS.estimates.b[1] <- b.hat
 
 #http://dept.stat.lsa.umich.edu/~jasoneg/Stat406/lab7.pdf
-for (i in 1:n.rep) {
-    # sample size
-    n <- length(y)
+tic()
+for (i in 2:n.samp) {
+  
+  ####
+  #### First for alpha
+  ####
     # posterior derived in writeup
-    log.posterior <- function(alpha) ((n*alpha)*log(beta) - n*log(gamma(alpha)) + sum(log(y^(alpha-1))) -beta*sum(y)+ alpha^2+beta^2)
+    log.posterior <- function(a,b){
+      return(n*a*log(b) - n*lgamma(a) + a*log.sum.y - (1/6)*a^2 )
+      #return(n*a*log(b) - n*lgamma(a) + a*log.sum.y - b*sum.y - (1/6)*a^2 - (1/6)*b^2)
+    }
     # parameters for the trial distribution
-    alpha = a_init
-    beta = b_init
-   
-     # log trial density, g
-     log.g <- function(t) dgamma(t,alpha,beta,log=TRUE)
-     # log importance function
-     log.w <- function(t) log.posterior(t) - log.g(t)
+
+     # log proposal density, g
+     log.g <- function(t) dexp(t,rate=1/t,log=TRUE)
      
-     # generate from the trial distribution
+     # log importance function
+     log.w <- function(t) log.posterior(t, IS.estimates.b[i-1]) - log.g(t)
+     
+     # generate from the proposal distribution
      res <- 1000
-     U <- rgamma(res, alpha, beta)
+     U <- rexp(res, rate = 1/IS.estimates.a[i-1])
      # calculate the list of log.w values
      LP <-  log.w(U)
      
      # importance sampling estimate
-     IS.estimates[i] <- mean( exp(LP)*U )/mean(exp(LP))
+     IS.estimates.a[i] <- mean( exp(LP)*U )/mean(exp(LP))
+     
+     
+     ####
+     #### Now for beta
+     ####
+     # posterior derived in writeup
+     log.posterior <- function(a,b){
+       return(n*a*log(b) - n*lgamma(a) + a*log.sum.y - b*sum.y - (1/6)*a^2 - (1/6)*b^2)
+     }
+     # # parameters for the trial distribution
+     # alpha = a.hat
+     # beta = b.hat
+     
+     # log proposal density, g
+     log.g <- function(t) dexp(t,rate=1/IS.estimates.b[i-1],log=TRUE)
+     
+     # log importance function
+     log.w <- function(t) log.posterior(IS.estimates.a[i-1],t) - log.g(t)
+     
+     # generate from the proposal distribution
+     res <- 1000
+     U <- rexp(res, 1/IS.estimates.b[i-1])
+     # calculate the list of log.w values
+     LP <-  log.w(U)
+     
+     # importance sampling estimate
+     IS.estimates.b[i] <- mean( exp(LP)*U )/mean(exp(LP))
 }
 
-
-tic()
-for (i in 1:n.rep) {
-  # sample size
-  n <- length(y)
-  # posterior derived in writeup
-  log.posterior <- log(beta^((n*alpha)/(gamma(alpha)^n) + sum(log(y^(alpha-1))) -beta*sum(y)+ alpha^2+beta^2
-  # parameters for the trial distribution
-  a = a_init; b = b_init
-  
-  # log trial density, g
-  log.g <- function(t) dgamma(t,a,b,log=TRUE)
-  # log importance function
-  log.w <- function(t) log.posterior(t) - log.g(t)
-
-  # generate from the trial distribution
-  res <- 1000
-  U <- rgamma(res, a, b)
-  # calculate the list of log.w values
-  LP <-  log.w(U)
-
-  # importance sampling estimate
-  I <- mean( exp(LP)*U )/mean(exp(LP))
-  
-  # calculate ESS
-  ESS <- mean( ( (exp(LP)/mean(exp(LP))) - 1)^2 )
-  # calculate s.e. of the IS estimate
-  Z = exp(LP)/mean(exp(LP))
-  sig.sq <- (1/res)*sum( (Z-I)^2 )
-  se <- sqrt( sig.sq/res )
-}
 imp_time <- toc()
 imp_time <- imp_time$toc-imp_time$tic
 
@@ -167,42 +172,39 @@ imp_err_b <- mcse(IS.estimates, method = "tukey")$se
 # That is, discuss stopping criteria (how you determined chain length), the number of starting 
 # values you tried, how you obtained initial values etc.
 
-proposal=function(x1,x2,v1,v2){
-  return(rmvnorm(1, mean = c(x1, x2), sigma=c(v1,v2)*diag(2)))
+proposal=function(a,b){
+  #indep exponentials- only using same support as alpha,beta
+  a_prop <- rexp(1,rate=1/a)
+  b_prop <- rexp(1,rate=1/b)
+  prop <- c(a_prop, b_prop)
+  return(prop)
 }
 
-target=function(alpha,beta){
+target=function(a,b){
   if(alpha<0){
     return(-Inf)
   }else if(beta<0){
     return(-Inf)
   }
   else{
-    return(log(beta^((n*alpha)/(gamma(alpha)^n) + sum(log(y^(alpha-1))) -beta*sum(y)+ alpha^2+beta^2)
+    return(n*a*log(b) - n*lgamma(a) + a*log.sum.y - b*sum.y - (1/6)*a^2 - (1/6)*b^2 )
   }
 }
 
 
 #Setting intial values and initializing variables
-n=1500
-mcmc.samp.a=rep(NA,n)
-mcmc.samp.b=rep(NA,n)
-lambda=3
-beta=3
+mcmc.samp.a=rep(NA,n.samp)
+mcmc.samp.b=rep(NA,n.samp)
+alpha=a.hat
+beta=b.hat
 mcmc.samp.a[1]=alpha
 mcmc.samp.b[1]=beta
 
-#tuning parameter
-set.seed(148752)
-v1=0.2
-v2=7
-
-
-for(i in 1:n){
+tic()
+for(i in 1:n.samp){
   if(i %% 100 == 0) cat("Starting iteration", i, "\n")
-  #proposal=function(x1,x2,v)
-  #target=function(lambda,beta)
-  x.star=proposal(alpha,beta,v1,v2)
+
+  x.star=proposal(alpha,beta)
   x1.star=x.star[1]
   x2.star=x.star[2]
   
@@ -210,11 +212,11 @@ for(i in 1:n){
   log.denom=target(alpha,beta)
   r=exp(log.num-log.denom)
   
-  if(runif(1)<r){
+  if(runif(1) < r){
     alpha=x1.star
     beta=x2.star
   }
- vmh.mcmc.samp.a[i]=alpha
+  mcmc.samp.a[i]=alpha
   mcmc.samp.b[i]=beta
 }
 amh_time <- toc()
@@ -246,77 +248,71 @@ amh_mean_b <- mean(mcmc.samp.b)
 amh_err_a <- mcse(mcmc.samp.a, method = "tukey")$se
 amh_err_b <- mcse(mcmc.samp.b, method = "tukey")$se
 
-
-
 #(c) Construct a variable-at-a-time Metropolis-Hastings (VMH) algorithm. You need to provide the 
 # same level of detail here as you did for the previous algorithm.
 
-# Problem 2
-# Part b
-proposal1=function(x1,v1){
-  return(rnorm(1, mean = x1, sd = sqrt(v1)))
+proposal1=function(v1){
+  return(rexp(1, rate = 1/v1))
+}
+proposal2=function(v2){
+  return(rexp(1, rate = 1/v2))
 }
 
-proposal2=function(x2,v2){
-  return(rnorm(1, mean = x2, sd = sqrt(v2)))
-}
-
-target1=function(alpha,beta){
+target1=function(a,b){
   if(alpha<0){
     return(-Inf)
   }else if(beta<0){
     return(-Inf)
   }
   else{
-    return(log(beta^((n*alpha)/(gamma(alpha)^n) + sum(log(y^(alpha-1))) -beta*sum(y)+ alpha^2)
+    return(n*a*log(b) - b*sum.y - (1/6)*b^2)
+    #return(n*a*log(b) - n*lgamma(a) + a*log.sum.y - b*sum.y - (1/6)*a^2 - (1/6)*b^2)
+    #return(log(prod(dgamma(y,a,b))*dnorm(b,0,3)))
   }
 }
 
 
-target2=function(alpha,beta){
+target2=function(a,b){
   if(alpha<0){
     return(-Inf)
   }else if(beta<0){
     return(-Inf)
   }
   else{
-    return(log(beta^((n*alpha)/(gamma(alpha)^n) + sum(log(y^(alpha-1))) -beta*sum(y)+ beta^2)
+    return(n*a*log(b) - n*lgamma(a) + a*log.sum.y - (1/6)*a^2)
+    #return(n*a*log(b) - n*lgamma(a) + a*log.sum.y - b*sum.y - (1/6)*a^2- (1/6)*b^2)
+    #return(log(prod(dgamma(y,a,b))*dnorm(a,0,3)))
   }
 }
-
+#n*a*log(beta.star)
 
 #Setting intial values and initializing variables
-n=1500
-vmh.mcmc.samp.a=rep(NA,n)
-vmh.mcmc.samp.b=rep(NA,n)
-lambda=3
-beta=3
+vmh.mcmc.samp.a=rep(NA,n.samp)
+vmh.mcmc.samp.b=rep(NA,n.samp)
+alpha=a.hat
+beta=b.hat
 vmh.mcmc.samp.a[1]=alpha
 vmh.mcmc.samp.b[1]=beta
 
-#tuning parameter
-set.seed(89)
-#90
-v1=3
-v2=3
-#32- 174 ESS, 42%
+#tuning parameters are just the means of the distribution
+
 
 tic()
-for(i in 1:n){
+for(i in 1:n.samp){
   if(i %% 100 == 0) cat("Starting iteration", i, "\n")
-  #proposal=function(x1,v)
-  #target=function(lambda,beta)
-  beta.star=proposal1(beta,v)
-  log.num=target(alpha,beta.star)
-  log.denom=target(alpha,beta)
+  #VMH- beta
+  beta.star=proposal1(beta)
+  log.num=target1(alpha,beta.star)
+  log.denom=target1(alpha,beta)
   r=exp(log.num-log.denom)
   if(runif(1)<r){
     beta=beta.star
   }
   
-  alpha.star=proposal1(alpha,v)
-  log.num=target(alpha.star,beta)
-  log.denom=target(alpha,beta)
+  #VMH- alpha
+  alpha.star=proposal2(alpha)
+  log.num=target2(alpha.star,beta)
+  log.denom=target2(alpha,beta)
   r=exp(log.num-log.denom)
   if(runif(1)<r){
     alpha=alpha.star
@@ -325,6 +321,7 @@ for(i in 1:n){
  vmh.mcmc.samp.a[i]=alpha
  vmh.mcmc.samp.b[i]=beta
 }
+
 
 vmh_time <- toc()
 vhm_time <- vmh_time$toc-vmh_time$tic
