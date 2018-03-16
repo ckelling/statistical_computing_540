@@ -3,8 +3,9 @@
 ### STAT 540
 ### Homework #2
 ###
-### Created 2/21/2018 for the second assigment, due 3/15/2018
-### The exercises mainly focus on algorithms for approximating using Bayesian Inference.
+### Created 2/21/2018 for the second assigment, due 3/16/2018
+### The exercises mainly focus on algorithms for approximating posteriors using importance sampling,
+### all-at-once Metropolis Hastings and variable-at-a-time Metropolis Hastings.
 ### We also use data augmentation and auxiliary variables in this exercise.
 ### 
 
@@ -59,8 +60,6 @@ denom = function(ab){
 }
 
 n.samp <- 100000
-#a.hat <- rep(NA, n.samp)
-#b.hat <- rep(NA, n.samp)
 
 tic()
 a.num.opt = optim(c(0.01,0.01), alpha.num, hessian=T, method="L-BFGS-B", lower=c(0,0))
@@ -76,10 +75,6 @@ b.hat = b.num/den
 #timing and estimates
 lap_time <- toc()
 lap_time <- lap_time$toc-lap_time$tic
-# lap_mean_a <- mean(a.hat)
-# lap_err_a <- sd(a.hat)/sqrt(n.samp)
-# lap_mean_b <- mean(b.hat)
-# lap_err_b <- sd(b.hat)/sqrt(n.samp)
 
 
 ####
@@ -99,7 +94,6 @@ IS.estimates.b <- rep(NA, n.samp)
 IS.estimates.a[1] <- a.hat
 IS.estimates.b[1] <- b.hat
 
-#http://dept.stat.lsa.umich.edu/~jasoneg/Stat406/lab7.pdf
 tic()
 for (i in 2:n.samp) {
   if(i %% 1000 == 0) cat("Starting iteration", i, "\n")
@@ -111,7 +105,6 @@ for (i in 2:n.samp) {
       return(n*a*log(b) - n*lgamma(a) + a*log.sum.y - (1/6)*a^2 )
       #return(n*a*log(b) - n*lgamma(a) + a*log.sum.y - b*sum.y - (1/6)*a^2 - (1/6)*b^2)
     }
-    # parameters for the trial distribution
 
      # log proposal density, g
      log.g <- function(t) dexp(t,rate=1/t,log=TRUE)
@@ -533,7 +526,6 @@ target=function(theta){
 
 
 #Setting intial values and initializing variables
-n.samp <- 100000
 n <- length(bulb_dat)
 mcmc.samp=rep(NA,n.samp)
 theta=100
@@ -564,7 +556,7 @@ mean(!duplicated(mcmc.samp))
 
 plot(mcmc.samp, type = "l", main ="Trace plots of theta with burnin")
 
-burnin <- 1000
+burnin <- 500
 mcmc.samp <- mcmc.samp[-(1:burnin)]
 
 plot(mcmc.samp, type = "l", main = "Trace plots of theta without burnin")
@@ -588,11 +580,11 @@ df <- cbind(c(mean_aux, err_aux, ess_aux, es_t_aux),c(mean, err, ess, es_t))
 
 length(mcmc.samp.aux)
 length(mcmc.samp)
-mcmc.samp2 <- mcmc.samp[90001:99000]
+
 
 #Sample data
-dat <- data.frame(dens = c(mcmc.samp.aux, mcmc.samp2),
-                  lines = rep(c("with", "without"), each = length(mcmc.samp2)))
+dat <- data.frame(dens = c(mcmc.samp.aux, mcmc.samp),
+                  lines = rep(c("with aux", "without aux"), each = length(mcmc.samp)))
 #Plot.
 ggplot(dat, aes(x = dens, fill = lines)) + geom_density(alpha = 0.5)+labs(title ="Posterior Densities for two algorithms")
 
@@ -604,7 +596,10 @@ ggplot(dat, aes(x = dens, fill = lines)) + geom_density(alpha = 0.5)+labs(title 
 plot(density(mcmc.samp.z[,1]), "missing lightbulb")
 
 #just a lightbulb made by the company has a posterior (y|theta) of exponential, instead of shifted exponential
-post_pdf_comp <- rexp(n=10000,rate = 1/mean)
+post_pdf_comp <- rexp(n=nrow(mcmc.samp.z),rate = 1/mean)
+
+mean(mcmc.samp.z[,1])
+mean(post_pdf_comp)
 
 #Sample data
 dat <- data.frame(dens = c(mcmc.samp.z[,1], post_pdf_comp),
@@ -617,10 +612,10 @@ ggplot(dat, aes(x = dens, fill = lines)) + geom_density(alpha = 0.5)+labs(title 
 # which of the two MCMC algorithms is more efficient? Now accounting for computing costs, 
 # which of the two MCMC algorithms is more efficient? Which algorithm would you recommend?
 df <- cbind(c(ess_aux, es_t_aux),c(ess, es_t))
-
+xtable(df, digits = c(7,7,7))
 
 #(f) This course is focused on computing but it is worth noting some basics about inference. 
 # Compare your results above with what would happen to inference if you ignored the missing 
 # data by overlaying the density plots.
 
-
+#same plot as above, produced in question c
