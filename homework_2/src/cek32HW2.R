@@ -441,7 +441,7 @@ target=function(theta, z){
   if(theta<0){
     return(-Inf)
   }else{
-    return( -100*log(theta) -(1/theta)*sum(bulb_dat) ???(1/theta)*sum(z) -(theta/100))
+    return( -100*log(theta) -(1/theta)*sum(bulb_dat) -(1/theta)*sum(z) -(theta/100))
   }
 }
 
@@ -474,8 +474,8 @@ for( i in 2:n.samp){
   z_val <- r2exp(n=25, rate = theta, shift = 184)
   mcmc.samp.z[i,] <- z_val
 }
-wo_time <- toc()
-wo_time <- wo_time$toc-wo_time$tic
+w_time <- toc()
+w_time <- w_time$toc-w_time$tic
 
 ## Diagnostics
 # Acceptance rate
@@ -490,7 +490,7 @@ plot(mcmc.samp.aux, type = "l", main = "Trace plots of theta without burnin, wit
 acf(mcmc.samp.aux, main = "ACF of theta without burnin, with auxiliary")
 
 ess_aux <- effectiveSize(mcmc.samp.aux)
-es_t_aux <- effectiveSize(mcmc.samp.aux)/wo_time
+es_t_aux <- effectiveSize(mcmc.samp.aux)/w_time
 
 mean_aux <- mean(mcmc.samp.aux)
 err_aux <- mcse(mcmc.samp.aux, method = "tukey")$se
@@ -504,12 +504,113 @@ xtable(df_aux, digits = c(7))
 
 # This time, I will approximate the posterior directly, without data augmentation.
  
-#prior for theta is Gamma(1,100)
-#lifetime of lightbulbs are iid exp(theta)
-#let tau be 184 days and m = 100
-#posterior distribution of theta
+proposal=function(x1){
+  return(rexp(1, rate = 1/x1))
+}
 
-#func_samples <- rgamma(10000, shape = n+1, scale = (sum(bulb_dat)+ 1/100)^(-1))
+target=function(theta){
+  if(theta<0){
+    return(-Inf)
+  }else{
+    #return(-75*log(theta) -(1/theta)*sum(bulb_dat) - 75*log(1-exp(-(184/theta))) -(theta/100))
+    return(-75*log(theta) -(1/theta)*sum(bulb_dat)-25*(184/theta)  - (theta/100))
+  }
+}
+
+
+#Setting intial values and initializing variables
+n <- length(bulb_dat)
+mcmc.samp=rep(NA,n.samp)
+theta=100
+mcmc.samp[1]=theta
+
+tic()
+for(i in 2:n.samp){
+  if(i %% 1000 == 0) cat("Starting iteration", i, "\n")
+  theta <- mcmc.samp[i-1]
+  x.star=proposal(theta)
+  
+  log.num=target(x.star)
+  log.denom=target(theta)
+  r=exp(log.num-log.denom)
+  alpha <- min(1, r)
+  
+  if(runif(1)<alpha){
+    theta=x.star
+  }
+  mcmc.samp[i]=theta
+}
+wo_time <- toc()
+wo_time <- wo_time$toc-wo_time$tic
+
+## Diagnostics
+# Acceptance rate
+mean(!duplicated(mcmc.samp))
+
+plot(mcmc.samp, type = "l", main ="Trace plots of theta with burnin")
+
+burnin <- 500
+mcmc.samp <- mcmc.samp[-(1:burnin)]
+mcmc.samp.2 <- mcmc.samp
+
+plot(mcmc.samp, type = "l", main = "Trace plots of theta without burnin")
+acf(mcmc.samp, main = "ACF of theta without burnin")
+
+ess <- effectiveSize(mcmc.samp)
+es_t <- effectiveSize(mcmc.samp)/wo_time
+
+mean <- mean(mcmc.samp)
+err <- mcse(mcmc.samp, method = "tukey")$se
+
+df <- as.data.frame(c(mean, err, ess, es_t))
+xtable(df, digits = c(7))
+
+#(c) Overlay posterior density plot approximations for the two algorithms. Provide a table 
+# that shows the posterior mean approximations for theta along with MCMC standard errors.
+plot(density(mcmc_w_aux), "Density with auxiliarly variables")
+lines(density(mcmc_wo_aux))
+
+df <- cbind(c(mean_aux, err_aux, ess_aux, es_t_aux),c(mean, err, ess, es_t))
+
+length(mcmc.samp.aux)
+length(mcmc.samp)
+
+
+#Sample data
+dat <- data.frame(dens = c(mcmc.samp.aux, mcmc.samp),
+                  lines = rep(c("with aux", "without aux"), each = length(mcmc.samp)))
+#Plot.
+ggplot(dat, aes(x = dens, fill = lines)) + geom_density(alpha = 0.5)+labs(title ="Posterior Densities for two algorithms")
+
+
+#(d) For the auxiliary variable method, plot the approximate posterior pdf for one of the 
+# "missing" lightbulbs, then overlay the approximate posterior pdfs for a lightbulb made 
+# by the company. You should notice that they are different. Report the posterior mean 
+# estimates for each of them. 
+plot(density(mcmc.samp.z[,1]), "missing lightbulb")
+
+#just a lightbulb made by the company has a posterior (y|theta) of exponential, instead of shifted exponential
+post_pdf_comp <- rexp(n=nrow(mcmc.samp.z),rate = 1/mean)
+
+mean(mcmc.samp.z[,1])
+mean(post_pdf_comp)
+
+#Sample data
+dat <- data.frame(dens = c(mcmc.samp.z[,1], post_pdf_comp),
+                  lines = rep(c("missing lightbulb", "normal lightbulb"), each = length(post_pdf_comp)))
+#Plot.
+ggplot(dat, aes(x = dens, fill = lines)) + geom_density(alpha = 0.5)+labs(title ="Missing vs Normal lightbulb")
+
+
+#(e) Looking at just the ability to approximate the posterior per iteration of the algorithm, 
+# which of the two MCMC algorithms is more efficient? Now accounting for computing costs, 
+# which of the two MCMC algorithms is more efficient? Which algorithm would you recommend?
+df <- cbind(c(ess_aux, es_t_aux),c(ess, es_t))
+xtable(df, digits = c(7,7,7))
+
+#(f) This course is focused on computing but it is worth noting some basics about inference. 
+# Compare your results above with what would happen to inference if you ignored the missing 
+# data by overlaying the density plots.
 
 proposal=function(x1){
   return(rexp(1, rate = 1/x1))
@@ -571,51 +672,9 @@ err <- mcse(mcmc.samp, method = "tukey")$se
 df <- as.data.frame(c(mean, err, ess, es_t))
 xtable(df, digits = c(7))
 
-#(c) Overlay posterior density plot approximations for the two algorithms. Provide a table 
-# that shows the posterior mean approximations for theta along with MCMC standard errors.
-plot(density(mcmc_w_aux), "Density with auxiliarly variables")
-lines(density(mcmc_wo_aux))
-
-df <- cbind(c(mean_aux, err_aux, ess_aux, es_t_aux),c(mean, err, ess, es_t))
-
-length(mcmc.samp.aux)
-length(mcmc.samp)
-
 
 #Sample data
-dat <- data.frame(dens = c(mcmc.samp.aux, mcmc.samp),
-                  lines = rep(c("with aux", "without aux"), each = length(mcmc.samp)))
+dat <- data.frame(dens = c(mcmc.samp.aux, mcmc.samp, mcmc.samp.2),
+                  lines = rep(c("with aux", "ignoring aux", "without aux"), each = length(mcmc.samp)))
 #Plot.
-ggplot(dat, aes(x = dens, fill = lines)) + geom_density(alpha = 0.5)+labs(title ="Posterior Densities for two algorithms")
-
-
-#(d) For the auxiliary variable method, plot the approximate posterior pdf for one of the 
-# "missing" lightbulbs, then overlay the approximate posterior pdfs for a lightbulb made 
-# by the company. You should notice that they are different. Report the posterior mean 
-# estimates for each of them. 
-plot(density(mcmc.samp.z[,1]), "missing lightbulb")
-
-#just a lightbulb made by the company has a posterior (y|theta) of exponential, instead of shifted exponential
-post_pdf_comp <- rexp(n=nrow(mcmc.samp.z),rate = 1/mean)
-
-mean(mcmc.samp.z[,1])
-mean(post_pdf_comp)
-
-#Sample data
-dat <- data.frame(dens = c(mcmc.samp.z[,1], post_pdf_comp),
-                  lines = rep(c("missing lightbulb", "normal lightbulb"), each = length(post_pdf_comp)))
-#Plot.
-ggplot(dat, aes(x = dens, fill = lines)) + geom_density(alpha = 0.5)+labs(title ="Missing vs Normal lightbulb")
-
-
-#(e) Looking at just the ability to approximate the posterior per iteration of the algorithm, 
-# which of the two MCMC algorithms is more efficient? Now accounting for computing costs, 
-# which of the two MCMC algorithms is more efficient? Which algorithm would you recommend?
-df <- cbind(c(ess_aux, es_t_aux),c(ess, es_t))
-xtable(df, digits = c(7,7,7))
-
-#(f) This course is focused on computing but it is worth noting some basics about inference. 
-# Compare your results above with what would happen to inference if you ignored the missing 
-# data by overlaying the density plots.
-
-#same plot as above, produced in question c
+ggplot(dat, aes(x = dens, fill = lines)) + geom_density(alpha = 0.5)+labs(title ="Posterior Densities for three algorithms")
