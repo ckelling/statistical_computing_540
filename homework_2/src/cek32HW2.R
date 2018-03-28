@@ -28,8 +28,7 @@ library(data.table)
 #clear workspace
 rm(list=ls())
 
-#load data, make sure to change to READ FROM WEBSITE *******
-#http://personal.psu.edu/muh10/540/Rcode/hw1.dat
+#load data
 prob_5_dat <- fread("http://personal.psu.edu/muh10/540/Rcode/hw1.dat")
 y <- c((t(as.matrix(prob_5_dat))))
 n <- length(y)
