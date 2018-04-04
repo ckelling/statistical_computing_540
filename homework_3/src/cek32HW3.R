@@ -421,6 +421,7 @@ f_sgd <- function(X, y, beta.1, eps1, eps2,eps3, maxit, step){
   #   while we have not had convergence and are not at our maximum number of iterations....
   while((i <= maxit) & (diff.beta > eps1) & (diff.like > eps2) &
         (abs(score.2[1]) > eps3) & (abs(score.2[2]) > eps3)){
+    step_orig <- step
     # update index
     i <- i + 1                       
     
@@ -433,12 +434,16 @@ f_sgd <- function(X, y, beta.1, eps1, eps2,eps3, maxit, step){
     score.1 <- score.2
     
     # score function
-    j <- sample(seq(1,n), 1) 
+    # now, try to have a bigger batch size
+    #j <- sample(seq(1,n), 1) 
+    j <- sample(seq(1,n), 50) 
     #j <- i %% nrow(X) + 2
-    score.2 <- t(X[j,]) * (y[j] - p.2[j])
+    #score.2 <- t(X[j,]) * (y[j] - p.2[j])
+    score.2 <- t(X[j,]) %*% (y[j] - p.2[j])
+    #score.2 <- t(X) %*% (y - p.2)
     
     # this increment version uses the score function (or the gradient of f)
-    increm <-  -score.2 #/n
+    increm <-  -score.2 /length(j)
     
     # update beta
     beta.1 <- beta.2 - step * increm   # update beta
@@ -450,10 +455,12 @@ f_sgd <- function(X, y, beta.1, eps1, eps2,eps3, maxit, step){
     diff.like <- abs(llike.1 - llike.2) # diff
     
     #step size schedule
-    if(llike.1 > llike.2){
-      step <- 0.5*step
-    }
-    
+    # if(llike.1 < llike.2){
+    #  step <- 0.7*step
+    # }else(
+    #  step <- step_orig
+    # )
+    # 
     
     # iteration history
     NR.hist   <- rbind(NR.hist, c(i, diff.beta, diff.like, llike.1,score.2[1],score.2[2], step))
@@ -486,6 +493,7 @@ beta.off <- c(2,2)
 beta.cl <- c(-2,2)
 beta.close <- c(-1,2)
 beta.close.2 <- c(-0.75,1.75)
+beta.off.2 <- c(10,10)
 
 #vary the step size
 step_half <- c(0.5, 0.5)
@@ -494,12 +502,13 @@ step_vary <- c(1.5,0.5)
 step_ten <- c(10,10)
 step_15 <- c(15,15)
 step_05 <- c(0.05, 0.05)
+step_005 <- c(0.005, 0.005)
 step_100 <- c(100,100)
 
 
 # fit betas using our SGD function
 tic()
-output_0 <- f_sgd(X, y, c(0,0), 1e-6, 1e-6, 1e-6, 10000, c(10,10))
+output_0 <- f_sgd(X, y, beta.zero, 1e-6, 1e-6, 1e-6, 20000, c(0.05,0.05))
 SGD_time <- toc()
 SGD_time <- SGD_time$toc-SGD_time$tic
 
@@ -513,8 +522,8 @@ beta_df$ind <- c(1:nrow(output_0$beta.hist),1:nrow(output_0$beta.hist))
 beta_df$est <- as.numeric(as.character(beta_df$est))
 
 ggplot(data=beta_df, aes(x=ind,y=est, group=coeff, col = coeff)) +
-  geom_line()+
-  geom_point()+labs(title = "step (0.5,0.5), initial values (2,2)")
+  #geom_line()+
+  geom_point()+labs(title = "step (0.05,0.05), initial values (10,10)")
 
 
 # Estimates: 
