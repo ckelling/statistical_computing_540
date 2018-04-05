@@ -11,54 +11,62 @@ W <- m-obs #number of unobserved lifetimes
 ###
 
 C2 <- function(alpha, beta, tau){
-  num <- beta*incgam(alpha+1, tau/beta)
-  denom <- incgam(alpha, tau/beta)
-  e_2 <- num/denom
-  return(e_2)
+  num <- beta*incgam(a = alpha+1,x= tau/beta)
+  denom <- incgam(a= alpha,x= tau/beta)
+  c_2 <- num/denom
+  return(c_2)
 }
 
 
 C1 <- function(alpha, beta, tau){
   #approximating derivative
-  delta <- 1e-6
-  approx <- 1/delta * (incgam(alpha + delta, tau/beta)- incgam(alpha, tau/beta))
+  delta <- 1e-7
+  approx <- (1/delta) * (incgam(a = alpha + delta, x = tau/beta)- incgam(a = alpha,x = tau/beta))
   
   #calculating c2
-  e_1 <- log(beta) + (1/(incgam(alpha, tau/beta)))*(approx)
+  c_1 <- log(beta) + (1/(incgam(a = alpha, x = tau/beta)))*(approx)
   
-  return(e_1)
+  return(c_1)
 }
+
+# Testing finite difference method for this function
+alpha <- 10
+beta <- 15
+tau <- 200
+
+#numerical instability around 1e-10
+#stick with delta around 1e-7
+delta_vec <- seq(1e-10,1e-6, by=1e-10)
+approx_vec <- NULL
+for(i in 1:length(delta_vec)){
+  approx_vec[i] <- 1/delta_vec[i] * (incgam(a = alpha + delta_vec[i],x= tau/beta)- incgam(a =alpha,x= tau/beta))
+}
+
+i <- 1:500
+plot(delta_vec[-i], approx_vec[-i])
+length(delta_vec)
+delta_vec[500]
+
+
 
 Q_function <- function(param, alpha.k, beta.k){
   alpha <- param[1]
   beta <- param[2]
-  # sum((k-1)log(data)) + sum((k-1)*E_1)-
-  #   sum(data/theta) + sum(E_2/theta) - m*k*log(theta)-
-  #   m*log(k)
   tau <- 200
   
-  q_eval <- -m*alpha*log(beta) - m*(lgamma(alpha))+ (alpha-1)*(sum(log(data)))- (1/beta)*sum(data)-
+  q_eval <- -m*alpha*log(beta) - m*(lgamma(alpha))+ (alpha-1)*(sum(log(data)))- (1/beta)*sum(data)+
     W*(alpha-1)*C1(alpha.k, beta.k, tau) - (W/beta)*C2(alpha.k,beta.k,tau)
   
   return(q_eval)
   
 }
 
+
+#test it out
 init <- c(2,20)
 params <- optim(par=init, alpha.k = init[1], beta.k = init[2], fn=Q_function,
                 lower=c(1e-20,1e-20), 
                 control=list(fnscale=-1))$par
-
-?optim
-#compute optimal
-a.2 <- 3
-b.2 <- 3
-init <- c(a.2,b.2)
-params <- optim(par=init, old.a =a.2, old.b =b.2, fn=Q.fn,
-                method="L-BFGS-B",
-                lower=c(0,0), upper=c(5,100), 
-                control=list(fnscale=-1))$par
-
 
 
 f_em <- function(y, a.1, b.1, eps, maxit){
