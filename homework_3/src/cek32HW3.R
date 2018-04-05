@@ -5,6 +5,7 @@
 ###
 ### Created 3/27/2018 for the third assigment, due 4/5/2018
 ### The exercises mainly focus on optimization algorithms
+### We study Newton Raphson, Gradient Descent, Stochastic Gradient Descent, and EM.
 ### 
 
 library(data.table)
@@ -99,9 +100,6 @@ f_NR <- function(X, y, beta.1, eps1, eps2, eps3, maxit, step){
     # update index
     i <- i + 1                       
     
-    #define step
-    #step <- c(1,1)
-    
     # update beta
     beta.2 <- beta.1
     p.2 <-  p_funct(X, beta.2)
@@ -125,11 +123,7 @@ f_NR <- function(X, y, beta.1, eps1, eps2, eps3, maxit, step){
     diff.beta <- sqrt(sum((beta.1 - beta.2)^2)) # Euclidean distance
     llike.2 <- llike.1               # age likelihood value
     llike.1 <- log_lik(y, p_funct(X, beta.1)) # update loglikelihood
-    #if (is.nan(llike.1)){
-    #  llike.1 <- 1e10
-    #}
-    
-    
+
     diff.like <- abs(llike.1 - llike.2) # diff
     
     # iteration history
@@ -415,7 +409,6 @@ f_sgd <- function(X, y, beta.1, eps1, eps2,eps3, maxit, step){
   i <- 1
   NR.hist <- data.frame(i, diff.beta, diff.like, llike.1,score.2[1],score.2[2], step)
   beta.hist <- matrix(beta.1, nrow = 1)
-  #j <- sample(seq(1,n), 1)
   
   #actual gradient descent iterations:
   #   while we have not had convergence and are not at our maximum number of iterations....
@@ -429,18 +422,13 @@ f_sgd <- function(X, y, beta.1, eps1, eps2,eps3, maxit, step){
     beta.2 <- beta.1
     
     p.2 <- p_funct(X,beta.2)
-    #p.2 <- exp(beta.2 %*% t(X[j,]))/(1+exp(beta.2 %*% t(X[j,])))
     
     score.1 <- score.2
     
     # score function
     # now, try to have a bigger batch size
-    #j <- sample(seq(1,n), 1) 
     j <- sample(seq(1,n), 50) 
-    #j <- i %% nrow(X) + 2
-    #score.2 <- t(X[j,]) * (y[j] - p.2[j])
     score.2 <- t(X[j,]) %*% (y[j] - p.2[j])
-    #score.2 <- t(X) %*% (y - p.2)
     
     # this increment version uses the score function (or the gradient of f)
     increm <-  -score.2 /length(j)
@@ -679,7 +667,6 @@ f_em <- function(y, a.1, b.1, eps, maxit){
     params <- optim(par=init, alpha.k = init[1], beta.k = init[2], fn=Q_function,
                     lower=c(1e-20,1e-20), 
                     control=list(fnscale=-1))$par
-    ?optim
     
     #update param
     a.1 <- params[1]
