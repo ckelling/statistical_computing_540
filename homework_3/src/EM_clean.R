@@ -39,10 +39,12 @@ tau <- 200
 delta_vec <- seq(1e-10,1e-6, by=1e-10)
 approx_vec <- NULL
 for(i in 1:length(delta_vec)){
-  approx_vec[i] <- 1/delta_vec[i] * (incgam(a = alpha + delta_vec[i],x= tau/beta)- incgam(a =alpha,x= tau/beta))
+  approx_vec[i] <- (1/delta_vec[i])^2 * (incgam(a = alpha - delta_vec[i], x = tau/beta)- 2*incgam(a = alpha,x = tau/beta) + 
+                                 incgam(a = alpha + delta_vec[i], x = tau/beta))
+  #approx_vec[i] <- 1/delta_vec[i] * (incgam(a = alpha + delta_vec[i],x= tau/beta)- incgam(a =alpha,x= tau/beta))
 }
 
-i <- 1:500
+i <- 1:1000
 plot(delta_vec[-i], approx_vec[-i])
 length(delta_vec)
 delta_vec[500]
@@ -88,9 +90,7 @@ f_em <- function(y, a.1, b.1, eps, maxit){
   i <- 1
   EM.hist <- data.frame(i, diff.a, diff.b)
   param.hist <- matrix(c(a.1, b.1), nrow = 1)
-  #j <- sample(seq(1,n), 1)
   
-  #actual gradient descent iterations:
   #   while we have not had convergence and are not at our maximum number of iterations....
   while((i <= maxit) & ((diff.a > eps) | (diff.b > eps))){
     i <- i+1
@@ -136,15 +136,15 @@ f_em <- function(y, a.1, b.1, eps, maxit){
 }
 
 #initial values
-a.init <- 2;    b.init <- 2
+a.init <- 10;    b.init <- 10
 #a.init <- 100;  b.init <- 100
-#a.init <- 100;  b.init <- 50
+#a.init <- 160;  b.init <- 10
 #a.init <- 50;   b.init <- 100
 
 tic()
-output_0 <- f_em(y, 13, 16, 1e-6, 700)
+output_0 <- f_em(y, a.init, b.init, 1e-6, 700)
 em_time <- toc()
-em_time <- em_time$toc-em_time$tic
+#em_time <- em_time$toc-em_time$tic
 
 
 output_0$iter
@@ -160,7 +160,7 @@ param_df$est <- as.numeric(as.character(param_df$est))
 
 ggplot(data=param_df, aes(x=ind,y=est, group=parameter, col = parameter)) +
   geom_line()+
-  geom_point()+labs(title = "Estimation with Initial Values (,)")
+  geom_point()+labs(title = "EM Estimation with Initial Values (2, 2)")
 
 
 
@@ -168,7 +168,40 @@ ggplot(data=param_df, aes(x=ind,y=est, group=parameter, col = parameter)) +
 output_0$a.MLE
 output_0$b.MLE
 
-#Standard Error
+#for calculating standard errors
+alpha <- output_0$a.MLE
+beta <- output_0$b.MLE
 
+#Standard Error
+I_T_b <- (m*alpha)/(beta^2)
+I_T_a <- (m*trigamma(alpha))
+
+
+exp_c <- (beta* incgam(a = alpha+1, x = tau/beta))/(incgam(a = alpha, x = tau/beta))
+
+I_c_b <- (2*exp_c)/(beta^3) - (alpha/beta^2) + 
+  (exp(-tau/beta)*tau^alpha)/(incgam(a=alpha, x =tau/beta)*beta^(alpha+2))*((tau/beta)-alpha-1)-
+  ((exp(-tau/beta)*(tau^alpha)/(beta^(alpha+1)))/(incgam(a=alpha,x=tau/beta)))^2
+
+
+delta <- 6e-7
+first_approx <- (1/delta) * (incgam(a = alpha + delta, x = tau/beta)- incgam(a = alpha,x = tau/beta))
+sec_approx <- (1/delta)^2 * (incgam(a = alpha - delta, x = tau/beta)- 2*incgam(a = alpha,x = tau/beta) + 
+                               incgam(a = alpha + delta, x = tau/beta))
+
+
+I_c_a <- (sec_approx)/(incgam(a=alpha, x =tau/beta)) - 
+  ((first_approx)/(incgam(a=alpha, x=tau/beta)))^2
+
+I_Y_a <- I_T_a - I_c_a
+I_Y_b <- I_T_b - I_c_b
+
+inv_I_Y_a <- (I_Y_a)^-1
+inv_I_Y_b <- (I_Y_b)^-1
 
 #Confidence Intervals
+alpha + 1.96*inv_I_Y_a/sqrt(m)
+alpha - 1.96*inv_I_Y_a/sqrt(m)
+
+beta + 1.96*inv_I_Y_b/sqrt(m)
+beta - 1.96*inv_I_Y_b/sqrt(m)
