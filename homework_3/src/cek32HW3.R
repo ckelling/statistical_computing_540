@@ -150,7 +150,7 @@ f_NR <- function(X, y, beta.1, eps1, eps2, eps3, maxit, step){
   return(output)
 }
 
-#Now, try running the algorithm
+#Now, running the algorithm
 n <- nrow(prob1)
 y <- prob1$y
 x1 <- prob1$x1
@@ -220,7 +220,6 @@ xtable(results, digits = c(5,5,5,5,5))
 #  could use system.time). If you have 2-3 different versions of the
 #  algorithm, report timings for each version.
 NR_time
-NR_time1
 
 # (e) Provide the computational cost of the algorithm (flops) per iteration
 #  as a function of n. Also provide the number of iterations it took before
@@ -323,7 +322,7 @@ f_gd <- function(X, y, beta.1, eps1, eps2, eps3, maxit, step){
   return(output)
 }
 
-#Now, try running the algorithm
+#Now, running the algorithm
 
 # initial beta vector choices
 beta.zero <- rep(0, r)
@@ -373,7 +372,6 @@ xtable(results, digits = c(5,5,5,5,5))
 
 
 
-
 ###
 ### Problem 3
 ###
@@ -410,11 +408,13 @@ f_sgd <- function(X, y, beta.1, eps1, eps2,eps3, maxit, step){
   NR.hist <- data.frame(i, diff.beta, diff.like, llike.1,score.2[1],score.2[2], step)
   beta.hist <- matrix(beta.1, nrow = 1)
   
+  
+  #step_orig <- step
   #actual gradient descent iterations:
   #   while we have not had convergence and are not at our maximum number of iterations....
   while((i <= maxit) & (diff.beta > eps1) & (diff.like > eps2) &
         (abs(score.2[1]) > eps3) & (abs(score.2[2]) > eps3)){
-    step_orig <- step
+
     # update index
     i <- i + 1                       
     
@@ -443,13 +443,13 @@ f_sgd <- function(X, y, beta.1, eps1, eps2,eps3, maxit, step){
     diff.like <- abs(llike.1 - llike.2) # diff
     
     #step size schedule
-    # if(llike.1 < llike.2){
-    #  step <- 0.7*step
+    # if(llike.1 > llike.2){
+    #  step <- 0.5*step
     # }else(
     #  step <- step_orig
     # )
-    # 
-    
+
+
     # iteration history
     NR.hist   <- rbind(NR.hist, c(i, diff.beta, diff.like, llike.1,score.2[1],score.2[2], step))
     beta.hist <- rbind(beta.hist, matrix(beta.1, nrow = 1))
@@ -562,6 +562,9 @@ xtable(results, digits = c(5,5,5,5,5))
 # MLE for (alpha; beta) using the E-M algorithm. Repeat parts (a)-(f) from above
 # for this algorithm as well.
 
+#clear workspace
+rm(list=ls())
+
 prob_5 <- scan("http://personal.psu.edu/muh10/540/data/bulbsHW3.dat")
 data <- as.vector(prob_5)
 
@@ -603,9 +606,12 @@ tau <- 200
 delta_vec <- seq(1e-10,1e-6, by=1e-10)
 approx_vec <- NULL
 for(i in 1:length(delta_vec)){
-  approx_vec[i] <- (1/delta_vec[i])^2 * (incgam(a = alpha - delta_vec[i], x = tau/beta)- 2*incgam(a = alpha,x = tau/beta) + 
+  ap
+  #second order approximation
+  prox_vec[i] <- (1/delta_vec[i])^2 * (incgam(a = alpha - delta_vec[i], x = tau/beta)- 2*incgam(a = alpha,x = tau/beta) + 
                                            incgam(a = alpha + delta_vec[i], x = tau/beta))
-  #approx_vec[i] <- 1/delta_vec[i] * (incgam(a = alpha + delta_vec[i],x= tau/beta)- incgam(a =alpha,x= tau/beta))
+  #a#first order approximation
+  pprox_vec[i] <- 1/delta_vec[i] * (incgam(a = alpha + delta_vec[i],x= tau/beta)- incgam(a =alpha,x= tau/beta))
 }
 
 i <- 1:1000
