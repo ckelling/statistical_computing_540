@@ -141,13 +141,13 @@ nadam_opt <- function(data, lr, beta1, beta2, eps1, eps2, init, maxit){
   mean <- 0
   var <- 0
   theta_vec <- init
-  lr_t <- 0
   
   #initialization of output format
-  adam.hist <- data.frame(t, lr_t, mean, var)
+  nadam.hist <- data.frame(t, mean, var)
   theta.hist <- theta_vec
   
   #give data an intercept
+  #data <- cbind(1, tr_dat) #need to change back to data
   data <- cbind(1, data)
   
   #split data into x and y variables
@@ -155,6 +155,10 @@ nadam_opt <- function(data, lr, beta1, beta2, eps1, eps2, init, maxit){
   x_var <- as.matrix(x_var)
   y_var <- data[,ncol(data)]
   diff_theta <- 10
+  
+  #momentum scheduler
+  i <- 1:maxit
+  beta1.t.vec <- beta1*(1-0.5*0.96^(i/250))
   
   #now, we will create the updates according to the algorithm
   while((diff_theta > eps2) & (t < maxit)){
@@ -174,31 +178,37 @@ nadam_opt <- function(data, lr, beta1, beta2, eps1, eps2, init, maxit){
     error <- (t(x_var[stoch_iter,]) %*% (theta_vec)) - y_var[stoch_iter]
     
     for(k in 1:length(theta_vec)){
-      #Get gradients w.r.t. stochastic objective at timestep t
-      #k <- 2
-      grad <- error * x_var[stoch_iter, k]
+      #for testing purposes
+      #k<-2
       
       #current estimate of theta
       theta <- theta_vec[k]
       
+      #Get gradients w.r.t. stochastic objective at timestep t
+      grad <- error * x_var[stoch_iter, k]
+      
+      g_hat <- (grad)/ (1-prod(beta1.t.vec[1:t]))
+      
       #Update biased first moment estimate
       mean <- beta1 * mean + (1 - beta1) * grad
+      #compute unbiased estimate, with moment scheduler
+      mhat <- mean/(1-prod(beta1.t.vec[1:(t+1)]))
+      
       #Update biased second raw moment estimate
       var <- beta2 * var + (1 - beta2) * (grad^2)
+      #compute unbiased estimate
+      var_hat <- (var)/(1-beta2^t)
       
-      #compute lr_t
-      num <- 1 - beta1^t
-      denom <- 1 - beta2^t
-      lr_t <- lr * sqrt(num)/denom
+      #compute new update
+      m_bar <- (1-beta1.t.vec[t])*g_hat + beta1.t.vec[t+1]*mhat
       
-      #Compute bias-corrected first and second moment estimate
       #Update parameters
-      theta <- theta - lr_t * mean / (sqrt(var) + eps1)
+      theta <- theta - lr * m_bar / (sqrt(var_hat) + eps1)
       theta_vec[k] <- theta
     }
     
     #Create output vector
-    adam.hist   <- rbind(adam.hist, c(t, lr_t, mean, var))
+    nadam.hist   <- rbind(adam.hist, c(t, mhat, var_hat))
     theta.hist <- rbind(theta.hist, theta_vec)
     
     diff_theta <- max(abs(theta_prior-theta_vec))
@@ -207,9 +217,20 @@ nadam_opt <- function(data, lr, beta1, beta2, eps1, eps2, init, maxit){
   output <- list()
   output$theta.final  <- theta_vec
   output$iter        <- t - 1
-  output$adam.hist   <- adam.hist
+  output$adam.hist   <- nadam.hist
   output$theta.hist  <- theta.hist
   
   return(output)
   
 }
+
+#testing it out!
+beta1 <- 0.9
+beta2 <- 0.999
+eps1 <- 0.0000001 #for the algorithm
+eps2 <- 0.0001 #convergence criteria
+maxit <- 500
+lr <- 0.001
+
+test <- nadam_opt(tr_dat,lr, beta1, beta2, eps1, eps2, init, maxit)
+theta_hist <- test$theta.hist
