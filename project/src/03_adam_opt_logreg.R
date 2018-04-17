@@ -46,7 +46,7 @@ adam_opt <- function(data, lr, beta1, beta2, eps1, eps2, init, maxit){
   data <- cbind(1, data)
   
   #split data into x and y variables
-  x_var <- data[,1:ncol(data)-1]
+  x_var <- data[,1:(ncol(data)-1)]
   x_var <- as.matrix(x_var)
   y_var <- data[,ncol(data)]
   diff_theta <- 10
@@ -141,7 +141,7 @@ nadam_opt <- function(data, lr, beta1, beta2, eps1, eps2, init, maxit){
   data <- cbind(1, data)
   
   #split data into x and y variables
-  x_var <- data[,1:ncol(data)-1]
+  x_var <- data[,1:(ncol(data)-1)]
   x_var <- as.matrix(x_var)
   y_var <- data[,ncol(data)]
   diff_theta <- 10
@@ -269,3 +269,5 @@ theta_df$est <- as.numeric(as.character(theta_df$est))
 ggplot(data=theta_df, aes(x=ind,y=est, group=coeff, col = coeff)) +
   #geom_line()+
   geom_point()+labs(title = "Nadam Algorithm")
+
+
