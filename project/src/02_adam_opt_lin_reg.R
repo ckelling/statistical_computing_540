@@ -5,6 +5,7 @@
 ###
 ### Created 3/20/18 for final project code on Adam optimization
 ### Here, we code the adam optimizer by hand, and assess for possible difficulties.
+### This implementation is for linear regression.
 ### 
 
 
