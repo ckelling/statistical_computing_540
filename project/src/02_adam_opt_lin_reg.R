@@ -127,7 +127,7 @@ eps2 <- 0.0001 #convergence criteria
 maxit <- 500
 lr <- 0.001
 
-test <- adam_opt(tr_dat,lr, beta1, beta2, eps1, eps2, init, maxit)
+adam_out <- adam_opt(tr_dat,lr, beta1, beta2, eps1, eps2, init, maxit)
 theta_hist <- test$theta.hist
 
 ##
@@ -234,3 +234,48 @@ lr <- 0.001
 
 test <- nadam_opt(tr_dat,lr, beta1, beta2, eps1, eps2, init, maxit)
 theta_hist <- test$theta.hist
+
+
+###
+### Measurements for Adam
+###
+
+tic()
+adam_out <- adam_opt(tr_dat,lr, beta1, beta2, eps1, eps2, init, maxit)
+adam_time <- toc()
+adam_time <- adam_time$toc-adam_time$tic
+
+adam_out$iter
+
+theta_df <- cbind(c(rep("theta_1", nrow(adam_out$theta.hist)),rep("theta_2", nrow(adam_out$theta.hist))),
+                 c(adam_out$theta.hist[,1],adam_out$theta.hist[,2] ))
+colnames(theta_df) <- c("coeff", "est")
+theta_df <- as.data.frame(theta_df)
+theta_df$ind <- c(1:nrow(adam_out$theta.hist),1:nrow(adam_out$theta.hist))
+theta_df$est <- as.numeric(as.character(theta_df$est))
+
+ggplot(data=theta_df, aes(x=ind,y=est, group=coeff, col = coeff)) +
+  #geom_line()+
+  geom_point()+labs(title = "Adam Algorithm")
+
+###
+### Measurements for Nadam
+###
+
+tic()
+nadam_out <- nadam_opt(tr_dat,lr, beta1, beta2, eps1, eps2, init, maxit)
+nadam_time <- toc()
+nadam_time <- nadam_time$toc-nadam_time$tic
+
+nadam_out$iter
+
+theta_df <- cbind(c(rep("theta_1", nrow(nadam_out$theta.hist)),rep("theta_2", nrow(nadam_out$theta.hist))),
+                  c(nadam_out$theta.hist[,1],nadam_out$theta.hist[,2] ))
+colnames(theta_df) <- c("coeff", "est")
+theta_df <- as.data.frame(theta_df)
+theta_df$ind <- c(1:nrow(nadam_out$theta.hist),1:nrow(nadam_out$theta.hist))
+theta_df$est <- as.numeric(as.character(theta_df$est))
+
+ggplot(data=theta_df, aes(x=ind,y=est, group=coeff, col = coeff)) +
+  #geom_line()+
+  geom_point()+labs(title = "Nadam Algorithm")
