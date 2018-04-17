@@ -28,26 +28,21 @@ log_lik <- function(y, p){
 }
 
 
-sgd_opt <- function(data, lr, beta1, beta2, eps1, eps2, init, maxit){
+sgd_opt <- function(data, step, eps2, init, maxit){
   
   #initializations of iteration counts and other variables, as in paper
   t <- 0
-  mean <- 0
-  var <- 0
   theta_vec <- init
-  lr_t <- 0
+  backtrack.iter <- 0
   
   #initialization of output format
-  adam.hist <- data.frame(t, lr_t, mean, var)
+  sgd.hist <- data.frame(t)
   theta.hist <- theta_vec
   
-  #give data an intercept
-  data <- cbind(1, data)
-  
   #split data into x and y variables
-  x_var <- data[,1:ncol(data)-1]
-  x_var <- as.matrix(x_var)
-  y_var <- data[,ncol(data)]
+  X <- data[,1:ncol(data)-1]
+  X <- as.matrix(X)
+  y <- data[,ncol(data)]
   diff_theta <- 10
   
   #now, we will create the updates according to the algorithm
@@ -65,34 +60,45 @@ sgd_opt <- function(data, lr, beta1, beta2, eps1, eps2, init, maxit){
     
     #need for calculating gradient for linear regression
     #theta_vec <- as.numeric(theta_vec$theta_vec)
-    error <- (t(x_var[stoch_iter,]) %*% (theta_vec)) - y_var[stoch_iter]
+    p.2 <- p_funct(X,beta.2)
     
-    for(k in 1:length(theta_vec)){
-      #Get gradients w.r.t. stochastic objective at timestep t
-      #k <- 2
-      grad <- error * x_var[stoch_iter, k]
+    score.1 <- score.2
+    
+    # score function
+    # now, try to have a bigger batch size
+    score.2 <- t(X[stoch_iter,]) %*% (y[stoch_iter] - p.2[stoch_iter])
+    
+    # this increment version uses the score function (or the gradient of f)
+    increm <-  -score.2 /length(j)
+    
+    # update beta
+    theta_vec <- theta_prior - step * increm   # update theta
+    
+    ll.prev = log_lik(y, p_funct(X, theta_prior))
+    ll.new = log_lik(y, p_funct(X, theta_vec))
+    
+    ### Backtracking (halve step size)
+    if(ll.new - ll.prev >= 0){
+      backtrack = T 
+      s = step.size
+    }else{
+      backtrack = F
+    }
+    while(backtrack){
+      step = step / 2
       
-      #current estimate of theta
-      theta <- theta_vec[k]
+      p.2 <- p_funct(X,theta_prior)
+      score.2 <- t(X[stoch_iter,]) %*% (y[stoch_iter] - p.2[stoch_iter])
+      increm <-  -score.2 
       
-      #Update biased first moment estimate
-      mean <- beta1 * mean + (1 - beta1) * grad
-      #Update biased second raw moment estimate
-      var <- beta2 * var + (1 - beta2) * (grad^2)
-      
-      #compute lr_t
-      num <- 1 - beta1^t
-      denom <- 1 - beta2^t
-      lr_t <- lr * sqrt(num)/denom
-      
-      #Compute bias-corrected first and second moment estimate
-      #Update parameters
-      theta <- theta - lr_t * mean / (sqrt(var) + eps1)
-      theta_vec[k] <- theta
+      beta.new = beta.prev - step*increm
+      ll.new = Objective_fun(beta.new)
+      backtrack = ll.new - ll.prev >= 0
+      backtrack.iter = backtrack.iter + 1 
     }
     
     #Create output vector
-    adam.hist   <- rbind(adam.hist, c(t, lr_t, mean, var))
+    sgd.hist   <- rbind(sgd.hist, c(t))
     theta.hist <- rbind(theta.hist, theta_vec)
     
     diff_theta <- max(abs(theta_prior-theta_vec))
@@ -101,9 +107,15 @@ sgd_opt <- function(data, lr, beta1, beta2, eps1, eps2, init, maxit){
   output <- list()
   output$theta.final  <- theta_vec
   output$iter        <- t - 1
-  output$adam.hist   <- adam.hist
+  output$sgd.hist   <- sgd.hist
   output$theta.hist  <- theta.hist
+  output$backtrack.iter <- backtrack.iter
   
   return(output)
-  
 }
+
+
+
+##Load data and try algorithm
+#load data
+prob1 <- fread("http://personal.psu.edu/muh10/540/data/logReg.dat")
