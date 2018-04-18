@@ -88,7 +88,7 @@ sgd_opt <- function(data, step, eps2, init, maxit){
       
       #find the stochastic row that we will use
       stoch_iter <- sample(1:nrow(data), 1)
-      Score.eval = Score.SGD(theta_prior,1, stoch_iter)
+      Score.eval <- Score.SGD(theta_prior,1, stoch_iter)
       
       theta_vec <- theta_prior - s * Score.eval  # update theta
       theta_vec <- as.vector(theta_vec)
@@ -137,8 +137,8 @@ init <- c(10,10)
 
 tic()
 sgd_log_out <- sgd_opt(data, step, eps2, init, maxit)
-SGD_time <- toc()
-SGD_time <- SGD_time$toc-SGD_time$tic
+#SGD_time <- toc()
+#SGD_time <- SGD_time$toc-SGD_time$tic
 
 sgd_log_out$iter
 
@@ -156,3 +156,4 @@ ggplot(data=theta_df, aes(x=ind,y=est, group=coeff, col = coeff)) +
   geom_point()+labs(title = "Stochastic Gradient Descent")
 
 sgd_log_out$theta.final
+sgd_log_out$backtrack.iter
