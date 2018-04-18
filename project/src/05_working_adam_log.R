@@ -39,7 +39,7 @@ adam_opt <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
   backtrack.iter <- 0
   
   #initialization of output format
-  adam.hist <- data.frame(t, lr_t, mean, var)
+  adam.hist <- data.frame(t, lr_t, mean.curr, var.curr)
   theta.hist <- theta_vec
   
   #split data into x and y variables
@@ -80,26 +80,24 @@ adam_opt <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
     var <- beta2 * var.curr + (1 - beta2) * (grad^2)
     
     #compute lr_t
-    num <- 1 - beta1^t
-    denom <- 1 - beta2^t
+    num <- 1 - (beta1^t)
+    denom <- 1 - (beta2^t)
     lr_t <- step * sqrt(num)/denom
     
     #Compute bias-corrected first and second moment estimate
     #Update parameters
     theta_vec <- theta - lr_t * mean / (sqrt(var) + eps1)
-    mean.curr <- mean
-    var.curr <- var
     
     ll.prev = obj_fun(theta_prior)
     ll.new = obj_fun(theta_vec)
     
-    ll.new - ll.prev
+    #ll.new - ll.prev
     
-    ## Backtracking (halve step size)
+    ## Backtracking (halve step size)- this happens once we get closer
     if(ll.new - ll.prev >= 0){
       backtrack = T
       s = step
-      bt_theta <- NULL
+      #bt_theta <- NULL
     }else{
       backtrack = F
     }
@@ -108,27 +106,27 @@ adam_opt <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
 
       #find the stochastic row that we will use
       stoch_iter <- sample(1:nrow(data), 1)
-      
+
       #need for calculating gradient for logistic regression
       Score.eval = Score.SGD(theta_prior,1, stoch_iter)
 
       # update theta
       #Get gradients w.r.t. stochastic objective at timestep t
       grad <- Score.eval
-      
+
       #current estimate of theta
       theta <- theta_prior
-      
+
       #Update biased first moment estimate
       mean <- beta1 * mean.curr + (1 - beta1) * grad
       #Update biased second raw moment estimate
       var <- beta2 * var.curr + (1 - beta2) * (grad^2)
-      
+
       #compute lr_t
       num <- 1 - beta1^t
       denom <- 1 - beta2^t
       lr_t <- s * sqrt(num)/denom
-      
+
       #Compute bias-corrected first and second moment estimate
       #Update parameters
       theta_vec <- theta - lr_t * mean / (sqrt(var) + eps1)
@@ -138,14 +136,16 @@ adam_opt <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
       ll.new - ll.prev
       backtrack = ll.new - ll.prev >= 0
       backtrack.iter = backtrack.iter + 1
-      print(paste(backtrack.iter, "**********"))
-      
-      if(backtrack.iter >400) break
-      
-      theta.hist <- rbind(theta.hist, c(theta_vec))
+      #print(paste(backtrack.iter, "**********"))
+
+      if(backtrack.iter >20000) break
+
+      #theta.hist <- rbind(theta.hist, c(theta_vec))
     }
 
     #theta.hist <- rbind(theta.hist, bt_theta)
+    mean.curr <- mean
+    var.curr <- var
     
     diff_stop = max( abs(theta_prior-theta_vec)/ abs(theta_prior)) > 1e-10  
     ll_stop   = abs( ll.new-ll.prev ) / abs(ll.prev)  > 1e-10 
@@ -191,10 +191,10 @@ theta_hist <- adam_out$theta.hist
 ### Measurements for Adam
 ###
 
-tic()
-adam_out <- adam_opt(data,0.1, beta1, beta2, eps1, eps2, init, maxit)
-adam_time <- toc()
-adam_time <- adam_time$toc-adam_time$tic
+#tic()
+#adam_out <- adam_opt(data, step, beta2, eps1, eps2, init, maxit)
+#adam_time <- toc()
+#adam_time <- adam_time$toc-adam_time$tic
 
 adam_out$iter
 
@@ -209,6 +209,7 @@ ggplot(data=theta_df, aes(x=ind,y=est, group=coeff, col = coeff)) +
   #geom_line()+
   geom_point()+labs(title = "Adam Algorithm")
 
+adam_out$backtrack.iter
 adam_out$theta.final
 
 ###
