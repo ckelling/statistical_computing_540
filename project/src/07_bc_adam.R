@@ -187,7 +187,7 @@ beta2 <- 0.999
 eps1 <- 0.0000001 #for the algorithm
 eps2 <- 1e-6 #convergence criteria
 maxit <- 10000
-step <- 1#step size of 1 helps speed
+step <- 1#step size of 1 helps speed (can make step size smaller for more consistent convergence)
 init <- c(10,10)
 data <- prob1
 
@@ -196,16 +196,14 @@ X <- data[,1:(ncol(data)-1)]
 X <- as.matrix(X)
 y <- data[,ncol(data)]
 
-step2 <- 10
-adam_bc_out <- adam_bc(data, step, beta1, beta2, eps1, eps2, init, maxit)
-theta_hist <- adam_bc_out$theta.hist
 
 ###
 ### Measurements for Adam
 ###
 
 #tic()
-#adam_bc_out <- adam_opt(data, step, beta2, eps1, eps2, init, maxit)
+adam_bc_out <- adam_bc(data, step, beta1, beta2, eps1, eps2, init, maxit)
+#theta_hist <- adam_bc_out$theta.hist
 #adam_time <- toc()
 #adam_time <- adam_time$toc-adam_time$tic
 
@@ -225,5 +223,6 @@ ggplot(data=theta_df, aes(x=ind,y=est, group=coeff, col = coeff)) +
 adam_bc_out$backtrack.iter
 adam_bc_out$theta.final
 
-
+#save(adam_bc_out, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/adam_output.Rdata")
+#save(adam_bc_out, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/adam_output3.Rdata")
 
