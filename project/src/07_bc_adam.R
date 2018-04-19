@@ -79,16 +79,6 @@ adam_bc <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
     #Update biased second raw moment estimate
     var <- beta2 * var.curr + (1 - beta2) * (grad^2)
     
-    # #compute lr_t
-    # num <- 1 - (beta2^t)
-    # denom <- 1 - (beta1^t)
-    # lr_t <- step * sqrt(num)/denom
-    # 
-    # #Compute bias-corrected first and second moment estimate
-    # #Update parameters
-    # e_hat <- eps1*sqrt(1-beta2^t)
-    # theta_vec <- theta - lr_t * mean / (sqrt(var)) #+ e_hat)
-    
     #Now, instead of lr_t, we will compute bias_corrected versions of mean and variance, 
     #  and use these as the next estimates (this is not what is shown in the paper)
     m_hat <- mean/(1 - beta1^t)
