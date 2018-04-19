@@ -264,7 +264,7 @@ adam_out$theta.final
 ###
 
 tic()
-nadam_out <- nadam_opt(data,lr, beta1, beta2, eps1, eps2, init, maxit)
+nadam_out <- nadam_opt(data,0.1, beta1, beta2, eps1, eps2, init, maxit)
 nadam_time <- toc()
 nadam_time <- nadam_time$toc-nadam_time$tic
 
