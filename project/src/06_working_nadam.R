@@ -3,8 +3,8 @@
 ### SODA 540
 ### Final Project
 ###
-### Created 3/20/18 for final project code on Adam optimization
-### Here, we code the adam optimizer by hand, and assess for possible difficulties.
+### Created 3/20/18 for final project code on nadam optimization
+### Here, we code the nadam optimizer by hand, and assess for possible difficulties.
 ### This implementation is for the problem we did for Homework 3 (NR, GD, and SGD) for comparison
 ### In other words, this is trying to find the Gamma parameters
 ### 
@@ -28,7 +28,7 @@ Score.SGD <- function(theta,batch.size, index){
   return(-loop_sum)
 }
 
-adam_bc <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){  
+nadam_bc <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){  
   
   #initializations of iteration counts and other variables, as in paper
   t <- 0
@@ -39,7 +39,7 @@ adam_bc <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
   backtrack.iter <- 0
   
   #initialization of output format
-  adam.hist <- data.frame(t, lr_t, mean.curr, var.curr)
+  nadam.hist <- data.frame(t, lr_t, mean.curr, var.curr)
   theta.hist <- theta_vec
   
   #split data into x and y variables
@@ -50,6 +50,10 @@ adam_bc <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
   diff_theta <- 10; diff_stop <- T; step_stop <- T #arbitrarily high number and false
   
   #now, we will create the updates according to the algorithm
+  #momentum scheduler
+  i <- 1:maxit
+  beta1.t.vec <- beta1*(1-0.5*0.96^(i/250))
+  
   while((diff_theta > eps2) & (t < maxit) & diff_stop & step_stop){
     
     #keep the prior theta to assess for convergence
@@ -70,33 +74,27 @@ adam_bc <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
     # update theta
     #Get gradients w.r.t. stochastic objective at timestep t
     grad <- Score.eval
+    g_hat <- (grad)/ (1-prod(beta1.t.vec[1:t]))
     
     #current estimate of theta
     theta <- theta_prior
     
     #Update biased first moment estimate
     mean <- beta1 * mean.curr + (1 - beta1) * grad
+    #compute unbiased estimate, with moment scheduler
+    mhat <- mean/(1-prod(beta1.t.vec[1:(t+1)]))
+    
     #Update biased second raw moment estimate
     var <- beta2 * var.curr + (1 - beta2) * (grad^2)
+    #compute unbiased estimate
+    var_hat <- (var)/(1-beta2^t)
     
-    # #compute lr_t
-    # num <- 1 - (beta2^t)
-    # denom <- 1 - (beta1^t)
-    # lr_t <- step * sqrt(num)/denom
-    # 
-    # #Compute bias-corrected first and second moment estimate
-    # #Update parameters
-    # e_hat <- eps1*sqrt(1-beta2^t)
-    # theta_vec <- theta - lr_t * mean / (sqrt(var)) #+ e_hat)
-    
-    #Now, instead of lr_t, we will compute bias_corrected versions of mean and variance, 
-    #  and use these as the next estimates (this is not what is shown in the paper)
-    m_hat <- mean/(1 - beta1^t)
-    v_hat <- var/(1 - beta2^t)
+    #compute new update
+    m_bar <- (1-beta1.t.vec[t])*g_hat + beta1.t.vec[t+1]*mhat
     
     #Compute bias-corrected first and second moment estimate
     #Update parameters
-    theta_vec <- theta_prior - step * m_hat / (sqrt(v_hat)+ eps1)
+    theta_vec <- theta - step * m_bar / (sqrt(var_hat) + eps1)
     
     ll.prev = obj_fun(theta_prior)
     ll.new = obj_fun(theta_vec)
@@ -116,34 +114,34 @@ adam_bc <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
 
       #find the stochastic row that we will use
       stoch_iter <- sample(1:nrow(data), 1)
-
+      
       #need for calculating gradient for logistic regression
       Score.eval = Score.SGD(theta_prior,1, stoch_iter)
-
+      
       # update theta
       #Get gradients w.r.t. stochastic objective at timestep t
       grad <- Score.eval
-
-      #current estimate of theta
-      theta <- theta_prior
-
+      g_hat <- (grad)/ (1-prod(beta1.t.vec[1:t]))
+      
       #Update biased first moment estimate
       mean <- beta1 * mean.curr + (1 - beta1) * grad
+      #compute unbiased estimate, with moment scheduler
+      mhat <- mean/(1-prod(beta1.t.vec[1:(t+1)]))
+      
       #Update biased second raw moment estimate
       var <- beta2 * var.curr + (1 - beta2) * (grad^2)
+      #compute unbiased estimate
+      var_hat <- (var)/(1-beta2^t)
       
-      #Now, instead of lr_t, we will compute bias_corrected versions of mean and variance, 
-      #  and use these as the next estimates (this is not what is shown in the paper)
-      m_hat <- mean/(1 - beta1^t)
-      v_hat <- var/(1 - beta2^t)
-
+      #compute new update
+      m_bar <- (1-beta1.t.vec[t])*g_hat + beta1.t.vec[t+1]*mhat
+      
       #Compute bias-corrected first and second moment estimate
       #Update parameters
-      theta_vec <- theta - s * m_hat / (sqrt(v_hat) + eps1)
+      theta_vec <- theta - s * m_bar / (sqrt(var_hat) + eps1)
 
       ll.new = obj_fun(theta_vec)
-
-      ll.new - ll.prev
+      
       backtrack = ll.new - ll.prev >= 0
       backtrack.iter = backtrack.iter + 1
       #print(paste(backtrack.iter, "**********"))
@@ -164,7 +162,7 @@ adam_bc <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
     ll_stop   = abs( ll.new-ll.prev ) / abs(ll.prev)  > 1e-10 
     
     #Create output vector
-    adam.hist   <- rbind(adam.hist, c(t, lr_t, mean, var))
+    nadam.hist   <- rbind(nadam.hist, c(t, lr_t, mean, var))
     theta.hist <- rbind(theta.hist, c(theta_vec))
     
     diff_theta <- max(abs(theta_prior-theta_vec))
@@ -173,14 +171,14 @@ adam_bc <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
   output <- list()
   output$theta.final  <- theta_vec
   output$iter        <- t - 1
-  output$adam.hist   <- adam.hist
+  output$nadam.hist   <- nadam.hist
   output$theta.hist  <- theta.hist
   output$backtrack.iter <- backtrack.iter
   
   return(output)
 }
 
-#test the adam algorithm
+#test the nadam algorithm
 prob1 <- fread("http://personal.psu.edu/muh10/540/data/logReg.dat")
 beta1 <- 0.9
 beta2 <- 0.999
@@ -196,34 +194,34 @@ X <- data[,1:(ncol(data)-1)]
 X <- as.matrix(X)
 y <- data[,ncol(data)]
 
-step2 <- 10
-adam_bc_out <- adam_bc(data, step, beta1, beta2, eps1, eps2, init, maxit)
-theta_hist <- adam_bc_out$theta.hist
-
 ###
-### Measurements for Adam
+### Measurements for nadam
 ###
 
 #tic()
-#adam_bc_out <- adam_opt(data, step, beta2, eps1, eps2, init, maxit)
-#adam_time <- toc()
-#adam_time <- adam_time$toc-adam_time$tic
+nadam_bc_out <- nadam_bc(data, step, beta1, beta2, eps1, eps2, init, maxit)
+theta_hist <- nadam_bc_out$theta.hist
+#nadam_time <- toc()
+#nadam_time <- nadam_time$toc-nadam_time$tic
 
-adam_bc_out$iter
+nadam_bc_out$iter
 
-theta_df <- cbind(c(rep("theta_1", nrow(adam_bc_out$theta.hist)),rep("theta_2", nrow(adam_bc_out$theta.hist))),
-                  c(adam_bc_out$theta.hist[,1],adam_bc_out$theta.hist[,2] ))
+theta_df <- cbind(c(rep("theta_1", nrow(nadam_bc_out$theta.hist)),rep("theta_2", nrow(nadam_bc_out$theta.hist))),
+                  c(nadam_bc_out$theta.hist[,1],nadam_bc_out$theta.hist[,2] ))
 colnames(theta_df) <- c("coeff", "est")
 theta_df <- as.data.frame(theta_df)
-theta_df$ind <- c(1:nrow(adam_bc_out$theta.hist),1:nrow(adam_bc_out$theta.hist))
+theta_df$ind <- c(1:nrow(nadam_bc_out$theta.hist),1:nrow(nadam_bc_out$theta.hist))
 theta_df$est <- as.numeric(as.character(theta_df$est))
 
 ggplot(data=theta_df, aes(x=ind,y=est, group=coeff, col = coeff)) +
   #geom_line()+
-  geom_point()+labs(title = "Adam Algorithm")
+  geom_point()+labs(title = "Nadam Algorithm")
 
-adam_bc_out$backtrack.iter
-adam_bc_out$theta.final
+nadam_bc_out$backtrack.iter
+nadam_bc_out$theta.final
 
+
+#save(nadam_bc_out, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/nadam_output.Rdata")
+#save(nadam_bc_out, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/nadam_output2.Rdata")
 
 
