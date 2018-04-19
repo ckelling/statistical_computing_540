@@ -81,12 +81,12 @@ adam_bc <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
     
     #Now, instead of lr_t, we will compute bias_corrected versions of mean and variance, 
     #  and use these as the next estimates (this is not what is shown in the paper)
-    m_hat <- mean/(1 - beta1^t)
-    v_hat <- var/(1 - beta2^t)
+    mean <- mean/(1 - beta1^t)
+    var <- var/(1 - beta2^t)
     
     #Compute bias-corrected first and second moment estimate
     #Update parameters
-    theta_vec <- theta_prior - step * m_hat / (sqrt(v_hat)+ eps1)
+    theta_vec <- theta_prior - step * mean / (sqrt(var)+ eps1)
     
     ll.prev = obj_fun(theta_prior)
     ll.new = obj_fun(theta_vec)
@@ -124,12 +124,12 @@ adam_bc <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
       
       #Now, instead of lr_t, we will compute bias_corrected versions of mean and variance, 
       #  and use these as the next estimates (this is not what is shown in the paper)
-      m_hat <- mean/(1 - beta1^t)
-      v_hat <- var/(1 - beta2^t)
+      mean <- mean/(1 - beta1^t)
+      var <- var/(1 - beta2^t)
 
       #Compute bias-corrected first and second moment estimate
       #Update parameters
-      theta_vec <- theta - s * m_hat / (sqrt(v_hat) + eps1)
+      theta_vec <- theta - s * mean / (sqrt(var) + eps1)
 
       ll.new = obj_fun(theta_vec)
 
