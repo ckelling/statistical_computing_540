@@ -472,7 +472,7 @@ nadam_store$perc_conv <- (j-nrow(nadam_store$df))/j
 
 nadam_store$df <- nadam_store$df[-1,]
 
-colnames(nadam_store$df) <- c("adam_time", "iter", "b_iter", "c_iter","b_iter_c","tot_iter")
+colnames(nadam_store$df) <- c("time", "iter", "b_iter", "c_iter","b_iter_c","tot_iter")
 
 nadam_theta_av <- NULL
 nadam_theta_av$th_1_av <- rowMeans(nadam_store$theta.1.hist)
@@ -494,3 +494,8 @@ ggplot(data=theta_av_df, aes(x=ind,y=est, group=algo, col = algo)) +
   geom_line()+
   geom_point()+labs(title = "Convergence Comparion")+
   facet_wrap(~ coeff, ncol = 3)
+
+nadam_df <- theta_av_df 
+
+#save(nadam_store, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/full_nadam_sim.Rdata")
+#save(nadam_df, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/nadam_df.Rdata")
