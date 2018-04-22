@@ -255,7 +255,7 @@ adam_st <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
   diff_theta <- 10; diff_stop <- T; step_stop <- T #arbitrarily high number and false
   
   #now, we will create the updates according to the algorithm
-  while(t < maxit){
+  while((diff_theta > eps2) & (t < maxit) & diff_stop & step_stop){
     
     #keep the prior theta to assess for convergence
     theta_prior <- theta_vec
@@ -354,7 +354,7 @@ adam_st <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
       #print(paste(backtrack.iter, "**********"))
       
       if(backtrack.iter >20000){
-        print(paste("did not converge"))
+        #print(paste("did not converge"))
         break
       }
       
@@ -400,7 +400,7 @@ beta1 <- 0.9
 beta2 <- 0.999
 eps1 <- 0.0000001 #for the algorithm
 eps2 <- 1e-6 #convergence criteria
-maxit <- 10000
+maxit <- 500
 step <- 1#step size of 1 helps speed (can make step size smaller for more consistent convergence)
 init <- c(10,10)
 data <- prob1
@@ -429,6 +429,9 @@ while((nrow(adam_store$df) < niter)){
   #store time
   tic()
   adam_log_out <- adam_st(data, step, beta1, beta2, eps1, eps2, init, maxit)
+  adam_log_out$theta.final
+  b_iter <- adam_log_out$backtrack.iter
+  b_iter
   adam_time <- toc()
   adam_time <- adam_time$toc-adam_time$tic
   
@@ -436,7 +439,7 @@ while((nrow(adam_store$df) < niter)){
   th1 <- adam_log_out$theta.final[1]
   th2 <- adam_log_out$theta.final[2]
   
-  if((th1 < -0.6 & th1 >-1) & (th2 > 1.7 & th2 <2)){
+  if((th1 < -0.6 & th1 >-1) & (th2 > 1.7 & th2 <2) & (b_iter< 20000)){
     
     b_iter <- adam_log_out$backtrack.iter
     iter <- adam_log_out$iter
@@ -456,6 +459,10 @@ while((nrow(adam_store$df) < niter)){
     
     print(dim(adam_store$df))
     
+    #numerical underflow problems, so will need to just include the converged number after a certain point
+    filler_th1 <- rep(th1, 501-length(adam_log_out$theta.hist[,1]))
+    filler_th2 <- rep(th2, 501-length(adam_log_out$theta.hist[,2]))
+    
     #store data that will be dataframes
     adam_store$theta.final  <- rbind(adam_store$theta.final, adam_log_out$theta.final)
     adam_store$theta.1.hist  <- cbind(adam_store$theta.1.hist, adam_log_out$theta.hist[,1])
@@ -465,8 +472,9 @@ while((nrow(adam_store$df) < niter)){
 adam_store$f_conv <- i-nrow(adam_store$df)
 adam_store$perc_conv <- (i-nrow(adam_store$df))/i
 
-#save(nadam_bc_out, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/nadam_output.Rdata")
-#save(nadam_bc_out, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/nadam_output2.Rdata")
+###
+### Save this data and plot it for just the algorithm
+###
 
 adam_store$df <- adam_store$df[-1,]
 
@@ -485,11 +493,13 @@ theta_av_df <- cbind(c(rep("adam", 2*nrow(adam_theta_av))),
                      c(adam_theta_av$th1,adam_theta_av$th2 ))
 theta_av_df <- as.data.frame(theta_av_df)
 colnames(theta_av_df) <- c("algo","coeff", "est")
-theta_av_df$ind <- c(1:nrow(theta_av_df),1:nrow(theta_av_df))
+theta_av_df$ind <- c(1:nrow(adam_theta_av),1:nrow(adam_theta_av))
 theta_av_df$est <- as.numeric(as.character(theta_av_df$est))
 
 ggplot(data=theta_av_df, aes(x=ind,y=est, group=algo, col = algo)) +
   geom_line()+
-  geom_point()+labs(title = "Convergence Comparion")+
+  geom_point()+labs(title = "Convergence Comparison")+
   facet_wrap(~ coeff, ncol = 3)
+
+save(adam_store, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/full_adam_sim2.Rdata")
 
