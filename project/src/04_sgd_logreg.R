@@ -183,7 +183,7 @@ sgd_opt_st <- function(data, step, eps2, init, maxit){
   diff_theta <- 10; diff_stop <- T; step_stop <- T #arbitrarily high number and false
   
   #now, we will create the updates according to the algorithm
-  while((t < maxit)){
+  while((diff_theta > eps2) & (t < maxit) & diff_stop & step_stop){
     
     #keep the prior theta to assess for convergence
     theta_prior <- theta_vec
@@ -228,7 +228,7 @@ sgd_opt_st <- function(data, step, eps2, init, maxit){
       backtrack = ll.new - ll.prev >= 0
       backtrack.iter = backtrack.iter + 1 
       
-      if(backtrack.iter %% 10000 == 0) print(backtrack.iter)
+      #if(backtrack.iter %% 10000 == 0) print(backtrack.iter)
       #print(backtrack.iter)
       if(backtrack.iter > 20000) break
       
@@ -296,7 +296,7 @@ i <- 0
 
 while((nrow(sgd_store$df) < niter)){
   i <- i + 1
-  if(i %% 10 == 0) print(paste("we are currently at iteration", nrow(sgd_store$df), " out of ", niter))
+  if(nrow(sgd_store$df) %% 10 == 0) print(paste("we are currently at iteration", nrow(sgd_store$df), " out of ", niter))
   
   #store time
   tic()
@@ -307,8 +307,9 @@ while((nrow(sgd_store$df) < niter)){
   #check for convergence
   th1 <- sgd_log_out$theta.final[1]
   th2 <- sgd_log_out$theta.final[2]
+  b_iter <- sgd_log_out$backtrack.iter
   
-  if((th1 < -0.6 & th1 >-1) & (th2 > 1.7 & th2 <2)){
+  if((th1 < -0.6 & th1 >-1) & (th2 > 1.7 & th2 <2) & (b_iter < 20000)){
     
     b_iter <- sgd_log_out$backtrack.iter
     iter <- sgd_log_out$iter
@@ -327,22 +328,23 @@ while((nrow(sgd_store$df) < niter)){
     sgd_store$df <- rbind(sgd_store$df, c(SGD_time, iter, b_iter, c_iter,b_iter_c,tot_iter))
     
     print(dim(sgd_store$df))
-
+    
+    #numerical underflow problems, so will need to just include the converged number after a certain point
+    filler_th1 <- rep(th1, 501-length(sgd_log_out$theta.hist[,1]))
+    filler_th2 <- rep(th2, 501-length(sgd_log_out$theta.hist[,2]))
+    
     #store data that will be dataframes
     sgd_store$theta.final  <- rbind(sgd_store$theta.final, sgd_log_out$theta.final)
-    sgd_store$theta.1.hist  <- cbind(sgd_store$theta.1.hist, sgd_log_out$theta.hist[,1])
-    sgd_store$theta.2.hist  <- cbind(sgd_store$theta.2.hist, sgd_log_out$theta.hist[,2])
+    sgd_store$theta.1.hist  <- cbind(sgd_store$theta.1.hist, c(sgd_log_out$theta.hist[,1],filler_th1))
+    sgd_store$theta.2.hist  <- cbind(sgd_store$theta.2.hist, c(sgd_log_out$theta.hist[,2],filler_th2))
   }
 }
 sgd_store$f_conv <- i-nrow(sgd_store$df)
 sgd_store$perc_conv <- (i-nrow(sgd_store$df))/i
 
-#save(nadam_bc_out, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/nadam_output.Rdata")
-#save(nadam_bc_out, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/nadam_output2.Rdata")
-
 sgd_store$df <- sgd_store$df[-1,]
 
-colnames(sgd_store$df) <- c("SGD_time", "iter", "b_iter", "c_iter","b_iter_c","tot_iter")
+colnames(sgd_store$df) <- c("time", "iter", "b_iter", "c_iter","b_iter_c","tot_iter")
 
 sgd_theta_av <- NULL
 sgd_theta_av$th_1_av <- rowMeans(sgd_store$theta.1.hist)
@@ -357,10 +359,15 @@ theta_av_df <- cbind(c(rep("sgd", 2*nrow(sgd_theta_av))),
                   c(sgd_theta_av$th1,sgd_theta_av$th2 ))
 theta_av_df <- as.data.frame(theta_av_df)
 colnames(theta_av_df) <- c("algo","coeff", "est")
-theta_av_df$ind <- c(1:nrow(theta_av_df),1:nrow(theta_av_df))
+theta_av_df$ind <- c(1:nrow(sgd_theta_av),1:nrow(sgd_theta_av))
 theta_av_df$est <- as.numeric(as.character(theta_av_df$est))
 
 ggplot(data=theta_av_df, aes(x=ind,y=est, group=algo, col = algo)) +
   geom_line()+
   geom_point()+labs(title = "Convergence Comparion")+
   facet_wrap(~ coeff, ncol = 3)
+
+sgd_df <- theta_av_df 
+
+#save(sgd_store, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/full_sgd_sim.Rdata")
+#save(sgd_df, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/sgd_df.Rdata")
