@@ -228,7 +228,7 @@ nadam_bc_out$theta.final
 ###
 ### Now I will create a version of the algorithm that will make it easier to store information
 ###
-nadam_st <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){  
+nadam_st_nobc <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){  
   
   #initializations of iteration counts and other variables, as in paper
   t <- 0
@@ -284,19 +284,19 @@ nadam_st <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
     #Update biased first moment estimate
     mean <- beta1 * mean.curr + (1 - beta1) * grad
     #compute unbiased estimate, with moment scheduler
-    mhat <- mean/(1-prod(beta1.t.vec[1:(t+1)]))
+    #mhat <- mean/(1-prod(beta1.t.vec[1:(t+1)]))
     
     #Update biased second raw moment estimate
     var <- beta2 * var.curr + (1 - beta2) * (grad^2)
     #compute unbiased estimate
-    var_hat <- (var)/(1-beta2^t)
+    #var_hat <- (var)/(1-beta2^t)
     
     #compute new update
-    m_bar <- (1-beta1.t.vec[t])*g_hat + beta1.t.vec[t+1]*mhat
+    m_bar <- (1-beta1.t.vec[t])*g_hat + beta1.t.vec[t+1]*mean
     
     #Compute bias-corrected first and second moment estimate
     #Update parameters
-    theta_vec <- theta - step * m_bar / (sqrt(var_hat) + eps1)
+    theta_vec <- theta - step * m_bar / (sqrt(var) + eps1)
     
     ll.prev = obj_fun(theta_prior)
     ll.new = obj_fun(theta_vec)
@@ -328,19 +328,19 @@ nadam_st <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
       #Update biased first moment estimate
       mean <- beta1 * mean.curr + (1 - beta1) * grad
       #compute unbiased estimate, with moment scheduler
-      mhat <- mean/(1-prod(beta1.t.vec[1:(t+1)]))
+      #mhat <- mean/(1-prod(beta1.t.vec[1:(t+1)]))
       
       #Update biased second raw moment estimate
       var <- beta2 * var.curr + (1 - beta2) * (grad^2)
       #compute unbiased estimate
-      var_hat <- (var)/(1-beta2^t)
+      #var_hat <- (var)/(1-beta2^t)
       
       #compute new update
-      m_bar <- (1-beta1.t.vec[t])*g_hat + beta1.t.vec[t+1]*mhat
+      m_bar <- (1-beta1.t.vec[t])*g_hat + beta1.t.vec[t+1]*mean
       
       #Compute bias-corrected first and second moment estimate
       #Update parameters
-      theta_vec <- theta - s * m_bar / (sqrt(var_hat) + eps1)
+      theta_vec <- theta - s * m_bar / (sqrt(var) + eps1)
       
       ll.new = obj_fun(theta_vec)
       
@@ -408,23 +408,23 @@ y <- data[,ncol(data)]
 
 
 niter <- 100
-nadam_store <- list()
-nadam_store$df <-NULL
-nadam_store$theta.final  <- NULL
-nadam_store$theta.1.hist  <- NULL
-nadam_store$theta.2.hist  <- NULL
+nadma_nobc_store <- list()
+nadma_nobc_store$df <-NULL
+nadma_nobc_store$theta.final  <- NULL
+nadma_nobc_store$theta.1.hist  <- NULL
+nadma_nobc_store$theta.2.hist  <- NULL
 
 #will need to delete this row at the end
-nadam_store$df <- rbind(nadam_store$df, c(0,0,0,0,0,0))
+nadma_nobc_store$df <- rbind(nadma_nobc_store$df, c(0,0,0,0,0,0))
 j <- 0
 
-while((nrow(nadam_store$df) < niter)){
+while((nrow(nadma_nobc_store$df) < niter)){
   j <- j + 1
-  if(nrow(nadam_store$df) %% 10 == 0) print(paste("we are currently at iteration", nrow(nadam_store$df), " out of ", niter))
+  if(nrow(nadma_nobc_store$df) %% 10 == 0) print(paste("we are currently at iteration", nrow(nadma_nobc_store$df), " out of ", niter))
   
   #store time
   tic()
-  nadam_log_out <- nadam_st(data, step, beta1, beta2, eps1, eps2, init, maxit)
+  nadam_log_out <- nadam_st_nobc(data, step, beta1, beta2, eps1, eps2, init, maxit)
   #nadam_log_out$theta.final
   #b_iter <- nadam_log_out$backtrack.iter
   #b_iter
@@ -434,8 +434,9 @@ while((nrow(nadam_store$df) < niter)){
   #check for convergence
   th1 <- nadam_log_out$theta.final[1]
   th2 <- nadam_log_out$theta.final[2]
+  b_iter <- nadam_log_out$backtrack.iter
   
-  if((th1 < -0.6 & th1 >-1) & (th2 > 1.7 & th2 <2)){
+  if((th1 < -0.4 & th1 >-1.2) & (th2 > 1.5 & th2 <2.2) & (b_iter< 20000)){
     
     b_iter <- nadam_log_out$backtrack.iter
     iter <- nadam_log_out$iter
@@ -451,46 +452,52 @@ while((nrow(nadam_store$df) < niter)){
     }
     
     #store data on each iteration
-    nadam_store$df <- rbind(nadam_store$df, c(adam_time, iter, b_iter, c_iter,b_iter_c,tot_iter))
+    nadma_nobc_store$df <- rbind(nadma_nobc_store$df, c(adam_time, iter, b_iter, c_iter,b_iter_c,tot_iter))
     
-    print(dim(nadam_store$df))
+    print(dim(nadma_nobc_store$df))
     
     #numerical underflow problems, so will need to just include the converged number after a certain point
     filler_th1 <- rep(th1, 501-length(nadam_log_out$theta.hist[,1]))
     filler_th2 <- rep(th2, 501-length(nadam_log_out$theta.hist[,2]))
     #store data that will be dataframes
-    nadam_store$theta.final  <- rbind(nadam_store$theta.final, nadam_log_out$theta.final)
-    nadam_store$theta.1.hist  <- cbind(nadam_store$theta.1.hist, c(nadam_log_out$theta.hist[,1],filler_th1))
-    nadam_store$theta.2.hist  <- cbind(nadam_store$theta.2.hist, c(nadam_log_out$theta.hist[,2],filler_th2))
+    nadma_nobc_store$theta.final  <- rbind(nadma_nobc_store$theta.final, nadam_log_out$theta.final)
+    nadma_nobc_store$theta.1.hist  <- cbind(nadma_nobc_store$theta.1.hist, c(nadam_log_out$theta.hist[,1],filler_th1))
+    nadma_nobc_store$theta.2.hist  <- cbind(nadma_nobc_store$theta.2.hist, c(nadam_log_out$theta.hist[,2],filler_th2))
   }
 }
-nadam_store$f_conv <- j-nrow(nadam_store$df)
-nadam_store$perc_conv <- (j-nrow(nadam_store$df))/j
+nadma_nobc_store$f_conv <- j-nrow(nadma_nobc_store$df)
+nadma_nobc_store$perc_conv <- (j-nrow(nadma_nobc_store$df))/j
 
 #save(nadam_bc_out, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/nadam_output.Rdata")
 #save(nadam_bc_out, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/nadam_output2.Rdata")
 
-nadam_store$df <- nadam_store$df[-1,]
+nadma_nobc_store$df <- nadma_nobc_store$df[-1,]
 
-colnames(nadam_store$df) <- c("adam_time", "iter", "b_iter", "c_iter","b_iter_c","tot_iter")
+colnames(nadma_nobc_store$df) <- c("time", "iter", "b_iter", "c_iter","b_iter_c","tot_iter")
 
-nadam_theta_av <- NULL
-nadam_theta_av$th_1_av <- rowMeans(nadam_store$theta.1.hist)
-nadam_theta_av$th_2_av <- rowMeans(nadam_store$theta.2.hist)
-nadam_theta_av <- as.data.frame(nadam_theta_av)
-rownames(nadam_theta_av) <- NULL
-colnames(nadam_theta_av) <- c("th1", "th2")
+nadam_nobc_theta_av <- NULL
+nadam_nobc_theta_av$th_1_av <- rowMeans(nadma_nobc_store$theta.1.hist)
+nadam_nobc_theta_av$th_2_av <- rowMeans(nadma_nobc_store$theta.2.hist)
+nadam_nobc_theta_av <- as.data.frame(nadam_nobc_theta_av)
+rownames(nadam_nobc_theta_av) <- NULL
+colnames(nadam_nobc_theta_av) <- c("th1", "th2")
 
 #plotting the averaged iteration
-theta_av_df <- cbind(c(rep("nadam", 2*nrow(nadam_theta_av))),
-                     c(rep("theta_1", nrow(nadam_theta_av)),rep("theta_2", nrow(nadam_theta_av))),
-                     c(nadam_theta_av$th1,nadam_theta_av$th2 ))
+theta_av_df <- cbind(c(rep("nadam", 2*nrow(nadam_nobc_theta_av))),
+                     c(rep("theta_1", nrow(nadam_nobc_theta_av)),rep("theta_2", nrow(nadam_nobc_theta_av))),
+                     c(nadam_nobc_theta_av$th1,nadam_nobc_theta_av$th2 ))
 theta_av_df <- as.data.frame(theta_av_df)
 colnames(theta_av_df) <- c("algo","coeff", "est")
-theta_av_df$ind <- c(1:nrow(nadam_theta_av),1:nrow(nadam_theta_av))
+theta_av_df$ind <- c(1:nrow(nadam_nobc_theta_av),1:nrow(nadam_nobc_theta_av))
 theta_av_df$est <- as.numeric(as.character(theta_av_df$est))
 
 ggplot(data=theta_av_df, aes(x=ind,y=est, group=algo, col = algo)) +
   geom_line()+
   geom_point()+labs(title = "Convergence Comparion")+
   facet_wrap(~ coeff, ncol = 3)
+
+nadam_df_nobc <- theta_av_df
+nadam_store_nobc <- nadma_nobc_store
+
+#save(nadam_store_nobc, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/full_nadam_nobc_sim.Rdata")
+#save(nadam_df_nobc, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/nadam_df_nobc.Rdata")
