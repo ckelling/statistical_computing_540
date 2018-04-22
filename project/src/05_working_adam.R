@@ -465,8 +465,8 @@ while((nrow(adam_store$df) < niter)){
     
     #store data that will be dataframes
     adam_store$theta.final  <- rbind(adam_store$theta.final, adam_log_out$theta.final)
-    adam_store$theta.1.hist  <- cbind(adam_store$theta.1.hist, adam_log_out$theta.hist[,1])
-    adam_store$theta.2.hist  <- cbind(adam_store$theta.2.hist, adam_log_out$theta.hist[,2])
+    adam_store$theta.1.hist  <- cbind(adam_store$theta.1.hist, c(adam_log_out$theta.hist[,1],filler_th1))
+    adam_store$theta.2.hist  <- cbind(adam_store$theta.2.hist, c(adam_log_out$theta.hist[,2],filler_th2))
   }
 }
 adam_store$f_conv <- i-nrow(adam_store$df)
