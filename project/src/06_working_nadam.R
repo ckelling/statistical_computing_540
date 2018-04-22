@@ -253,11 +253,11 @@ nadam_st <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
   
   #now, we will create the updates according to the algorithm
   #momentum scheduler
-  i <- 1:maxit
+  i <- 1:(maxit+1)
   beta1.t.vec <- beta1*(1-0.5*0.96^(i/250))
   
-  while((t < maxit)){
-    
+  #while((diff_theta > eps2) & (t < maxit) & diff_stop & step_stop){
+  while((diff_theta > eps2) & (t < maxit) & diff_stop & step_stop){
     #keep the prior theta to assess for convergence
     theta_prior <- theta_vec
     theta_vec <- as.vector(theta_vec)
@@ -348,8 +348,8 @@ nadam_st <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
       backtrack.iter = backtrack.iter + 1
       #print(paste(backtrack.iter, "**********"))
       
-      if(backtrack.iter >40000){
-        print(paste("did not converge"))
+      if(backtrack.iter >20000){
+        #print(paste("did not converge"))
         break
       }
       
@@ -371,15 +371,17 @@ nadam_st <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
       b_iter_c <- c(b_iter_c, backtrack.iter)
     }
     
-    
     #Create output vector
-    sgd.hist   <- rbind(nadam.hist, c(t))
+    nadam.hist   <- rbind(nadam.hist, c(t, lr_t, mean, var))
     theta.hist <- rbind(theta.hist, c(theta_vec))
     
+    diff_theta <- max(abs(theta_prior-theta_vec))
   }
   
   output <- list()
   output$theta.final  <- theta_vec
+  output$conv_iter  <- conv_iter
+  output$b_iter_c  <- b_iter_c
   output$iter        <- t - 1
   output$nadam.hist   <- nadam.hist
   output$theta.hist  <- theta.hist
@@ -394,7 +396,7 @@ beta1 <- 0.9
 beta2 <- 0.999
 eps1 <- 0.0000001 #for the algorithm
 eps2 <- 1e-6 #convergence criteria
-maxit <- 10000
+maxit <- 500
 step <- 1#step size of 1 helps speed
 init <- c(10,10)
 data <- prob1
@@ -403,7 +405,6 @@ data<- as.data.frame(data)
 X <- data[,1:(ncol(data)-1)]
 X <- as.matrix(X)
 y <- data[,ncol(data)]
-
 
 
 niter <- 100
@@ -415,15 +416,18 @@ nadam_store$theta.2.hist  <- NULL
 
 #will need to delete this row at the end
 nadam_store$df <- rbind(nadam_store$df, c(0,0,0,0,0,0))
-i <- 0
+j <- 0
 
 while((nrow(nadam_store$df) < niter)){
-  i <- i + 1
+  j <- j + 1
   if(nrow(nadam_store$df) %% 10 == 0) print(paste("we are currently at iteration", nrow(nadam_store$df), " out of ", niter))
   
   #store time
   tic()
   nadam_log_out <- nadam_st(data, step, beta1, beta2, eps1, eps2, init, maxit)
+  #nadam_log_out$theta.final
+  #b_iter <- nadam_log_out$backtrack.iter
+  #b_iter
   adam_time <- toc()
   adam_time <- adam_time$toc-adam_time$tic
   
@@ -451,14 +455,17 @@ while((nrow(nadam_store$df) < niter)){
     
     print(dim(nadam_store$df))
     
+    #numerical underflow problems, so will need to just include the converged number after a certain point
+    filler_th1 <- rep(th1, 501-length(nadam_log_out$theta.hist[,1]))
+    filler_th2 <- rep(th2, 501-length(nadam_log_out$theta.hist[,2]))
     #store data that will be dataframes
     nadam_store$theta.final  <- rbind(nadam_store$theta.final, nadam_log_out$theta.final)
-    nadam_store$theta.1.hist  <- cbind(nadam_store$theta.1.hist, nadam_log_out$theta.hist[,1])
-    nadam_store$theta.2.hist  <- cbind(nadam_store$theta.2.hist, nadam_log_out$theta.hist[,2])
+    nadam_store$theta.1.hist  <- cbind(nadam_store$theta.1.hist, c(nadam_log_out$theta.hist[,1],filler_th1))
+    nadam_store$theta.2.hist  <- cbind(nadam_store$theta.2.hist, c(nadam_log_out$theta.hist[,2],filler_th2))
   }
 }
-nadam_store$f_conv <- i-nrow(nadam_store$df)
-nadam_store$perc_conv <- (i-nrow(nadam_store$df))/i
+nadam_store$f_conv <- j-nrow(nadam_store$df)
+nadam_store$perc_conv <- (j-nrow(nadam_store$df))/j
 
 #save(nadam_bc_out, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/nadam_output.Rdata")
 #save(nadam_bc_out, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/nadam_output2.Rdata")
@@ -470,7 +477,7 @@ colnames(nadam_store$df) <- c("adam_time", "iter", "b_iter", "c_iter","b_iter_c"
 nadam_theta_av <- NULL
 nadam_theta_av$th_1_av <- rowMeans(nadam_store$theta.1.hist)
 nadam_theta_av$th_2_av <- rowMeans(nadam_store$theta.2.hist)
-nadam_theta_av <- as.data.frame(nnadam_theta_av)
+nadam_theta_av <- as.data.frame(nadam_theta_av)
 rownames(nadam_theta_av) <- NULL
 colnames(nadam_theta_av) <- c("th1", "th2")
 
@@ -480,7 +487,7 @@ theta_av_df <- cbind(c(rep("nadam", 2*nrow(nadam_theta_av))),
                      c(nadam_theta_av$th1,nadam_theta_av$th2 ))
 theta_av_df <- as.data.frame(theta_av_df)
 colnames(theta_av_df) <- c("algo","coeff", "est")
-theta_av_df$ind <- c(1:nrow(theta_av_df),1:nrow(theta_av_df))
+theta_av_df$ind <- c(1:nrow(nadam_theta_av),1:nrow(nadam_theta_av))
 theta_av_df$est <- as.numeric(as.character(theta_av_df$est))
 
 ggplot(data=theta_av_df, aes(x=ind,y=est, group=algo, col = algo)) +
