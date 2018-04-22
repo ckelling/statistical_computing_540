@@ -478,7 +478,7 @@ adam_store$perc_conv <- (i-nrow(adam_store$df))/i
 
 adam_store$df <- adam_store$df[-1,]
 
-colnames(adam_store$df) <- c("adam_time", "iter", "b_iter", "c_iter","b_iter_c","tot_iter")
+colnames(adam_store$df) <- c("time", "iter", "b_iter", "c_iter","b_iter_c","tot_iter")
 
 adam_theta_av <- NULL
 adam_theta_av$th_1_av <- rowMeans(adam_store$theta.1.hist)
@@ -501,5 +501,7 @@ ggplot(data=theta_av_df, aes(x=ind,y=est, group=algo, col = algo)) +
   geom_point()+labs(title = "Convergence Comparison")+
   facet_wrap(~ coeff, ncol = 3)
 
-save(adam_store, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/full_adam_sim2.Rdata")
+adam_df <- theta_av_df 
 
+#save(adam_store, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/full_nadam_sim2.Rdata")
+#save(adam_df, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/adam_df.Rdata")
