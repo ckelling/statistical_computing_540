@@ -35,23 +35,23 @@ nadam_store$df <- as.data.frame(nadam_store$df)
 adam_store_nobc$df <- as.data.frame(adam_store_nobc$df)
 nadam_store_nobc$df <- as.data.frame(nadam_store_nobc$df)
 
-time_df <- c(mean(sgd_store$df$time),mean(sgdm_store$df$time)
+time_df <- c(mean(sgd_store$df$time),mean(sgdm_store$df$time),
              mean(adam_store$df$time),
              mean(nadam_store$df$time),mean(adam_store_nobc$df$time),
              mean(nadam_store_nobc$df$time))
 
 ## Comparison in terms of Number of iterations:
-iter_df <- c(mean(sgd_store$df$iter),mean(sgdm_store$df$iter)
+iter_df <- c(mean(sgd_store$df$iter),mean(sgdm_store$df$iter),
              mean(adam_store$df$iter),
              mean(nadam_store$df$iter),mean(adam_store_nobc$df$iter),
              mean(nadam_store_nobc$df$iter))
 
-citer_df <- c(mean(sgd_store$df$c_iter),mean(sgdm_store$df$c_iter)
+citer_df <- c(mean(sgd_store$df$c_iter),mean(sgdm_store$df$c_iter),
               mean(adam_store$df$c_iter),
              mean(nadam_store$df$c_iter),mean(adam_store_nobc$df$c_iter),
              mean(nadam_store_nobc$df$c_iter))
 
-titer_df <- c(mean(sgd_store$df$tot_iter),mean(sgdm_store$df$tot_iter)
+titer_df <- c(mean(sgd_store$df$tot_iter),mean(sgdm_store$df$tot_iter),
               mean(adam_store$df$tot_iter),
               mean(nadam_store$df$tot_iter),mean(adam_store_nobc$df$tot_iter),
               mean(nadam_store_nobc$df$tot_iter))
@@ -72,15 +72,6 @@ nadam_df_nobc$algo <- rep("nadam_nobc", nrow(nadam_df_nobc))
 # Need to combine all of the dataframes for plotting
 plot_dat <- rbind(sgd_df, sgdm_df, adam_df, nadam_df, adam_df_nobc, nadam_df_nobc)
 colnames(plot_dat)[1] <- "Algorithm"
-
-var_names <- c(
-  `theta_1` = expression(theta[1]),
-  `theta_2` = expression(theta[2])
-)
-
-plot_dat$coeff2 <- NULL
-plot_dat$coeff2[plot_dat$coeff == "theta_1"] <- expression(theta[1]) 
-plot_dat$coeff2[plot_dat$coeff == "theta_2"] <- expression(theta[2])
 
 plot_dat$coeff2 <- factor(plot_dat$coeff, labels = c("theta[1]", "theta[2]"))
 
