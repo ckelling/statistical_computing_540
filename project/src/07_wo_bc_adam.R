@@ -220,7 +220,7 @@ adam_bc_out$theta.final
 ###
 ### Now I will create a version of the algorithm that will make it easier to store information
 ###
-adam_st <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){  
+adam_st_nobc <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){  
   
   #initializations of iteration counts and other variables, as in paper
   t <- 0
@@ -402,39 +402,39 @@ y <- data[,ncol(data)]
 
 
 niter <- 100
-adam_store <- list()
-adam_store$df <-NULL
-adam_store$theta.final  <- NULL
-adam_store$theta.1.hist  <- NULL
-adam_store$theta.2.hist  <- NULL
+adam_store_nobc <- list()
+adam_store_nobc$df <-NULL
+adam_store_nobc$theta.final  <- NULL
+adam_store_nobc$theta.1.hist  <- NULL
+adam_store_nobc$theta.2.hist  <- NULL
 
 #will need to delete this row at the end
-adam_store$df <- rbind(adam_store$df, c(0,0,0,0,0,0))
+adam_store_nobc$df <- rbind(adam_store_nobc$df, c(0,0,0,0,0,0))
 i <- 0
 
-while((nrow(adam_store$df) < niter)){
+while((nrow(adam_store_nobc$df) < niter)){
   i <- i + 1
-  if(nrow(adam_store$df) %% 10 == 0) print(paste("we are currently at iteration", nrow(adam_store$df), " out of ", niter))
+  if(nrow(adam_store_nobc$df) %% 10 == 0) print(paste("we are currently at iteration", nrow(adam_store_nobc$df), " out of ", niter))
   
   #store time
   tic()
-  adam_log_out <- adam_st(data, step, beta1, beta2, eps1, eps2, init, maxit)
-  adam_log_out$theta.final
-  b_iter <- adam_log_out$backtrack.iter
+  adam_nobc_log_out <- adam_st_nobc(data, step, beta1, beta2, eps1, eps2, init, maxit)
+  adam_nobc_log_out$theta.final
+  b_iter <- adam_nobc_log_out$backtrack.iter
   b_iter
   adam_time <- toc()
   adam_time <- adam_time$toc-adam_time$tic
   
   #check for convergence
-  th1 <- adam_log_out$theta.final[1]
-  th2 <- adam_log_out$theta.final[2]
+  th1 <- adam_nobc_log_out$theta.final[1]
+  th2 <- adam_nobc_log_out$theta.final[2]
   
-  if((th1 < -0.6 & th1 >-1) & (th2 > 1.7 & th2 <2) & (b_iter< 20000)){
+  if((th1 < -0.4 & th1 >-1.2) & (th2 > 1.5 & th2 <2.2) & (b_iter< 20000)){
     
-    b_iter <- adam_log_out$backtrack.iter
-    iter <- adam_log_out$iter
-    conv_iter <- adam_log_out$conv_iter
-    b_iter_c <- adam_log_out$b_iter_c[1]
+    b_iter <- adam_nobc_log_out$backtrack.iter
+    iter <- adam_nobc_log_out$iter
+    conv_iter <- adam_nobc_log_out$conv_iter
+    b_iter_c <- adam_nobc_log_out$b_iter_c[1]
     c_iter <- conv_iter[1]
     tot_iter <- sum(c_iter, b_iter_c)
     
@@ -445,45 +445,45 @@ while((nrow(adam_store$df) < niter)){
     }
     
     #store data on each iteration
-    adam_store$df <- rbind(adam_store$df, c(adam_time, iter, b_iter, c_iter,b_iter_c,tot_iter))
+    adam_store_nobc$df <- rbind(adam_store_nobc$df, c(adam_time, iter, b_iter, c_iter,b_iter_c,tot_iter))
     
-    print(dim(adam_store$df))
+    print(dim(adam_store_nobc$df))
     
     #numerical underflow problems, so will need to just include the converged number after a certain point
-    filler_th1 <- rep(th1, 501-length(adam_log_out$theta.hist[,1]))
-    filler_th2 <- rep(th2, 501-length(adam_log_out$theta.hist[,2]))
+    filler_th1 <- rep(th1, 501-length(adam_nobc_log_out$theta.hist[,1]))
+    filler_th2 <- rep(th2, 501-length(adam_nobc_log_out$theta.hist[,2]))
     
     #store data that will be dataframes
-    adam_store$theta.final  <- rbind(adam_store$theta.final, adam_log_out$theta.final)
-    adam_store$theta.1.hist  <- cbind(adam_store$theta.1.hist, adam_log_out$theta.hist[,1])
-    adam_store$theta.2.hist  <- cbind(adam_store$theta.2.hist, adam_log_out$theta.hist[,2])
+    adam_store_nobc$theta.final  <- rbind(adam_store_nobc$theta.final, adam_nobc_log_out$theta.final)
+    adam_store_nobc$theta.1.hist  <- cbind(adam_store_nobc$theta.1.hist, c(adam_nobc_log_out$theta.hist[,1],filler_th1))
+    adam_store_nobc$theta.2.hist  <- cbind(adam_store_nobc$theta.2.hist, c(adam_nobc_log_out$theta.hist[,2],filler_th2))
   }
 }
-adam_store$f_conv <- i-nrow(adam_store$df)
-adam_store$perc_conv <- (i-nrow(adam_store$df))/i
+adam_store_nobc$f_conv <- i-nrow(adam_store_nobc$df)
+adam_store_nobc$perc_conv <- (i-nrow(adam_store_nobc$df))/i
 
 ###
 ### Save this data and plot it for just the algorithm
 ###
 
-adam_store$df <- adam_store$df[-1,]
+adam_store_nobc$df <- adam_store_nobc$df[-1,]
 
-colnames(adam_store$df) <- c("adam_time", "iter", "b_iter", "c_iter","b_iter_c","tot_iter")
+colnames(adam_store_nobc$df) <- c("time", "iter", "b_iter", "c_iter","b_iter_c","tot_iter")
 
-adam_theta_av <- NULL
-adam_theta_av$th_1_av <- rowMeans(adam_store$theta.1.hist)
-adam_theta_av$th_2_av <- rowMeans(adam_store$theta.2.hist)
-adam_theta_av <- as.data.frame(adam_theta_av)
-rownames(adam_theta_av) <- NULL
-colnames(adam_theta_av) <- c("th1", "th2")
+adam_nobc_theta_av <- NULL
+adam_nobc_theta_av$th_1_av <- rowMeans(adam_store_nobc$theta.1.hist)
+adam_nobc_theta_av$th_2_av <- rowMeans(adam_store_nobc$theta.2.hist)
+adam_nobc_theta_av <- as.data.frame(adam_nobc_theta_av)
+rownames(adam_nobc_theta_av) <- NULL
+colnames(adam_nobc_theta_av) <- c("th1", "th2")
 
 #plotting the averaged iteration
-theta_av_df <- cbind(c(rep("adam", 2*nrow(adam_theta_av))),
-                     c(rep("theta_1", nrow(adam_theta_av)),rep("theta_2", nrow(adam_theta_av))),
-                     c(adam_theta_av$th1,adam_theta_av$th2 ))
+theta_av_df <- cbind(c(rep("adam_nobc", 2*nrow(adam_nobc_theta_av))),
+                     c(rep("theta_1", nrow(adam_nobc_theta_av)),rep("theta_2", nrow(adam_nobc_theta_av))),
+                     c(adam_nobc_theta_av$th1,adam_nobc_theta_av$th2 ))
 theta_av_df <- as.data.frame(theta_av_df)
 colnames(theta_av_df) <- c("algo","coeff", "est")
-theta_av_df$ind <- c(1:nrow(adam_theta_av),1:nrow(adam_theta_av))
+theta_av_df$ind <- c(1:nrow(adam_nobc_theta_av),1:nrow(adam_nobc_theta_av))
 theta_av_df$est <- as.numeric(as.character(theta_av_df$est))
 
 ggplot(data=theta_av_df, aes(x=ind,y=est, group=algo, col = algo)) +
@@ -491,4 +491,7 @@ ggplot(data=theta_av_df, aes(x=ind,y=est, group=algo, col = algo)) +
   geom_point()+labs(title = "Convergence Comparison")+
   facet_wrap(~ coeff, ncol = 3)
 
-#save(adam_store_nobc, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/full_adam_sim_nobc.Rdata")
+adam_df_nobc <- theta_av_df 
+
+#save(adam_store_nobc, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/full_adam_nobc_sim.Rdata")
+#save(adam_df_nobc, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/adam_df_nobc.Rdata")
