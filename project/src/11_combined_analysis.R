@@ -88,7 +88,7 @@ ggplot(data=plot_dat, aes(x=ind,y=est, group=Algorithm, col = Algorithm)) +
 
 #Earlier Cutoff for graph:
 half <- nrow(sgd_df)/2+1
-n <- 350
+n <- 250
 plot_dat2 <- rbind(sgd_df[c(1:n, half:(half+n-1)),],sgdm_df[c(1:n, half:(half+n-1)),],
                    nag_df[c(1:n, half:(half+n-1)),],adam_df[c(1:n, half:(half+n-1)),], 
                    nadam_df[c(1:n, half:(half+n-1)),], adam_df_nobc[c(1:n, half:(half+n-1)),],
