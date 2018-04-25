@@ -64,6 +64,9 @@ full_comp <- rbind(time_df, iter_df, citer_df, titer_df)
 colnames(full_comp) <- c("sgd","sgd_m","nag","adam", "nadam", "adam_nobc", "nadam_nobc")
 rownames(full_comp) <- c("time", "iter", "citer", "titer")
 
+full_comp_report <- full_comp[c(1,2),]
+xtable(full_comp_report)
+
 #Quick fix on the name of the nadam_nobc algorithm
 nadam_df_nobc$algo <- rep("nadam_nobc", nrow(nadam_df_nobc))
 
