@@ -17,6 +17,7 @@
 # install.packages("https://github.com/jeremiedb/mxnet_winbin/raw/master/mxnet.zip", repos = NULL)
 
 library(mxnet)
+library(gradDescent)
 data(gradDescentRData)
 
 # This is a dataset that collected experimentaly by Kennedy in 1954 to obtain the density value of
