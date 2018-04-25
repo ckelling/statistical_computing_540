@@ -259,3 +259,6 @@ nag_df <- theta_av_df
 
 #save(nag_store, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/full_nag_sim.Rdata")
 #save(nag_df, file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/nag_df.Rdata")
+
+
+#load(file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/full_nag_sim.Rdata")
