@@ -4,9 +4,13 @@
 ### Final Project
 ###
 ### Created 4/20/18 for final project comparison of all algorithms considered.
+### We will compare the convergence of the objective function and the first two parameters,
+### out of 6, to assess the impact of bias correction.
 ### 
 
 ##Plotting the objective function over the averaged iteration
+## we need to create this structure for all iterations of the algorithm
+## we can just load the data below (instead of running below)
 obj_df <- NULL
 obj_df$obj <- rowMeans(store$obj_st)
 obj_df <- as.data.frame(obj_df)
@@ -17,7 +21,6 @@ colnames(obj_df) <- c("algo", "est")
 obj_df$ind <- c(1:nrow(obj_df))
 obj_df$est <- -as.numeric(as.character(obj_df$est))
 
-#s_obj <- obj_df
 nbc_obj <- obj_df
 #save(s_obj,file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/s_obj.Rdata")
 #save(sm_obj,file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/sm_obj.Rdata")
@@ -27,6 +30,15 @@ nbc_obj <- obj_df
 #save(abc_obj,file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/abc_obj.Rdata")
 #save(nbc_obj,file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/nbc_obj.Rdata")
 
+load(file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/s_obj.Rdata")
+load(file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/sm_obj.Rdata")
+load(file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/nag_obj.Rdata")
+load(file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/a_obj.Rdata")
+load(file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/n_obj.Rdata")
+load(file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/abc_obj.Rdata")
+load(file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/nbc_obj.Rdata")
+
+
 #quick correction
 s_obj$algo <- rep("sgd", nrow(s_obj))
 
@@ -35,21 +47,14 @@ full_obj <- rbind(s_obj, sm_obj, nag_obj,
                   a_obj, n_obj,
                   abc_obj, nbc_obj)
 
+#plotting the objective function convergence
 ggplot(data=full_obj, aes(x=ind,y=est, group=algo, col = algo)) +
   geom_line()+
   #geom_point()+
   labs(title = "Convergence of Objective Function")
 
 
-
-###
-### Claire Kelling
-### SODA 540
-### Final Project
-###
-### Created 4/10/18 for final project comparison of all algorithms considered.
-### 
-
+#load the data for the plot of convergence of the parameters
 #sgd
 load(file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/spam_full_sgd_sim.Rdata")
 load(file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/data/spam_sgd_df.Rdata")
