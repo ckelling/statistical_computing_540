@@ -46,17 +46,17 @@ time_df <- c(mean(sgd_store$df$time),mean(sgdm_store$df$time),
 
 ## Comparison in terms of Number of iterations:
 iter_df <- c(mean(sgd_store$df$iter),mean(sgdm_store$df$iter),
-             mean(nag_store$df$time),mean(adam_store$df$iter),
+             mean(nag_store$df$iter),mean(adam_store$df$iter),
              mean(nadam_store$df$iter),mean(adam_store_nobc$df$iter),
              mean(nadam_store_nobc$df$iter))
 
 citer_df <- c(mean(sgd_store$df$c_iter),mean(sgdm_store$df$c_iter),
-             mean(nag_store$df$time),mean(adam_store$df$c_iter),
+             mean(nag_store$df$c_iter),mean(adam_store$df$c_iter),
              mean(nadam_store$df$c_iter),mean(adam_store_nobc$df$c_iter),
              mean(nadam_store_nobc$df$c_iter))
 
 titer_df <- c(mean(sgd_store$df$tot_iter),mean(sgdm_store$df$tot_iter),
-              mean(nag_store$df$time),mean(adam_store$df$tot_iter),
+              mean(nag_store$df$c_iter),mean(adam_store$df$tot_iter),
               mean(nadam_store$df$tot_iter),mean(adam_store_nobc$df$tot_iter),
               mean(nadam_store_nobc$df$tot_iter))
 
@@ -102,6 +102,6 @@ colnames(plot_dat2)[1] <- "Algorithm"
 ggplot(data=plot_dat2, aes(x=ind,y=est, group=Algorithm, col = Algorithm)) +
   geom_line(size = 1)+
   #geom_point()+
-  labs(title = "Convergence Comparison")+
+  labs(title = "Convergence Comparison", x = "iterations")+
   #facet_wrap(~ coeff2, ncol = 3, labeller = label_parsed)
   facet_grid(.~coeff2, labeller = label_parsed)
