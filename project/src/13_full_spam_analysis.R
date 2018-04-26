@@ -11,16 +11,20 @@ library(ggplot2)
 library(tictoc)
 library(xtable)
 
+#load the data
+
 #https://archive.ics.uci.edu/ml/machine-learning-databases/spambase/spambase.DOCUMENTATION
 #https://archive.ics.uci.edu/ml/datasets/spambase
 #https://www.kaggle.com/c/cs-189-logistic-regression2/data
 spam_dat <- fread("https://archive.ics.uci.edu/ml/machine-learning-databases/spambase/spambase.data")
 
+#load all of the optimization functions
 source(file = "C:/Users/ckell/OneDrive/Penn State/2017-2018/01_Spring/540/statistical_computing_540/project/src/00_opt_functions.R")
 
-
-#data <- spam_dat[,c(1,2,3,5,6,8,9,10,11,12,13,14,15,58)] #now we have 13 covariates, plus an intercept
+#Below, is our final dataset for our report, with 6 covariates (including an intercept)
 data <- spam_dat[,c(1,2,3,5,6,58)]
+
+#test fitting the glm to see if there is a fit
 mod <- glm(V58 ~.,family=binomial(link='logit'),data=data)
 summary(mod)
 
@@ -32,14 +36,17 @@ eps2 <- 1e-9 #convergence criteria
 maxit <- 750
 step <- 1#step size of 1 helps speed
 
+#structuring the data, and adding an intercept
 data<- as.data.frame(data)
 X <- data[,1:(ncol(data)-1)]
 X <- cbind(rep(1, nrow(data)), X) #also include an intercept
 X <- as.matrix(X)
 y <- data[,ncol(data)]
 
+#intial values for the algorithm
 init <- rep(1, ncol(X))
 
+### We substitute these values for the algorithm in the following while loop
 # sgd_spam <- sgd_st(data, 100, eps2, init, maxit)
 # sgdm_spam <- sgdm_opt_st(data, step, eps2, beta1, init, maxit)
 # nag_spam <- nag_opt_st(data, step, eps2, beta1, init, maxit)
@@ -48,7 +55,6 @@ init <- rep(1, ncol(X))
 # adam_nobc_spam <- adam_st_nobc(data, step, beta1, beta2, eps1, eps2, init, maxit)
 # nadam_nobc_spam <- nadam_st_nobc(data, step, beta1, beta2, eps1, eps2, init, maxit)
 
-sgd_spam$theta.final
 
 ###
 ### Structure for saving information
@@ -71,7 +77,7 @@ while((nrow(store$df) < niter)){
   
   #store time
   tic()
-  spam_out <- nadam_st_nobc(data, step, beta1, beta2, eps1, eps2, init, maxit)
+  spam_out <- nadam_st_nobc(data, step, beta1, beta2, eps1, eps2, init, maxit) #put the algorithm you are running here
   sgdm_time <- toc()
   sgdm_time <- sgdm_time$toc-sgdm_time$tic
   
@@ -84,6 +90,7 @@ while((nrow(store$df) < niter)){
   
   print(spam_out$theta.final[1:2])
   
+  #once again, check for convergence (sometimes the algorithm gets stuck in backtracking)
   if((th2 > 0.5) & (th2<1) & (b_iter < 10000) & (!is.null(c_iter))){
     
     b_iter <- spam_out$backtrack.iter
@@ -107,6 +114,7 @@ while((nrow(store$df) < niter)){
     obj_final <- obj_fun(spam_out$theta.final)
     
     #numerical underflow problems, so will need to just include the converged number after a certain point
+    #after convergence criteria has been satisfied, we keep this value for the rest (so the time is accurate)
     filler_th1 <- rep(th1, 1501-length(spam_out$theta.hist[,1]))
     filler_th2 <- rep(th2, 1501-length(spam_out$theta.hist[,2]))
     filler_obj <- rep(obj_final, 1501-length(spam_out$theta.hist[,2]))
@@ -124,6 +132,8 @@ while((nrow(store$df) < niter)){
     store$obj_st <- cbind(store$obj_st, c(obj_fun_st,filler_obj))
   }
 }
+
+#keep track of how many iterations fail
 store$f_conv <- i-nrow(store$df)
 store$perc_conv <- (i-nrow(store$df))/i
 
@@ -153,8 +163,9 @@ ggplot(data=theta_av_df, aes(x=ind,y=est, group=algo, col = algo)) +
   facet_wrap(~ coeff, ncol = 3)
 
 rowMeans(store$theta.final)[1:2]
-# -1.1413010  0.7394682
+# -1.1413010  0.7394682 for sgd, could be used as a benchmark
 
+#rename these as the file that we will save below
 nbc_store <- store
 nbc_storage_df <- theta_av_df
 
