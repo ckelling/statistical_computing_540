@@ -5,7 +5,7 @@ obj_fun = function(theta){
 }
 
 Score.SGD <- function(theta,batch.size, index){
-  batch.size <- 3000
+  batch.size <- 4000
   loop_sum = matrix(0,ncol=1,nrow=length(theta))
   
   for(i in index){
@@ -22,21 +22,22 @@ Score.SGD <- function(theta,batch.size, index){
 
 
 
-sgd_opt <- function(data, step, eps2, init, maxit){
+sgd_st <- function(data, step, eps2, init, maxit){
   
   #initializations of iteration counts and other variables, as in paper
   t <- 0
   theta_vec <- init
   backtrack.iter <- 0
+  conv_iter <- NULL
+  b_iter_c <- NULL
   
   #initialization of output format
   sgd.hist <- data.frame(t)
   theta.hist <- theta_vec
   
   #split data into x and y variables
-  data <- as.data.frame(data)
+  data<- as.data.frame(data)
   X <- data[,1:(ncol(data)-1)]
-  X <- cbind(rep(1, nrow(data)), X) #also include an intercept
   X <- as.matrix(X)
   y <- data[,ncol(data)]
   diff_theta <- 10; diff_stop <- T; step_stop <- T #arbitrarily high number and false
@@ -51,7 +52,7 @@ sgd_opt <- function(data, step, eps2, init, maxit){
     
     #update time step
     t <- t+1
-    #print(t)
+    if(t %% 1000 == 0) print(t)
     
     #find the stochastic row that we will use
     stoch_iter <- sample(1:nrow(data), 1)
@@ -87,22 +88,35 @@ sgd_opt <- function(data, step, eps2, init, maxit){
       backtrack = ll.new - ll.prev >= 0
       backtrack.iter = backtrack.iter + 1 
       
+      #if(backtrack.iter %% 10000 == 0) print(backtrack.iter)
       #print(backtrack.iter)
+      if(backtrack.iter > 20000) break
       
     }
     
     diff_stop = max( abs(theta_prior-theta_vec)/ abs(theta_prior)) > 1e-10  
     ll_stop   = abs( ll.new-ll.prev ) / abs(ll.prev)  > 1e-10 
+    diff_theta <- max(abs(theta_prior-theta_vec)) > eps2
+    
+    if(diff_stop & ll_stop & diff_theta){
+      c <- "do nothing"
+    }else{
+      conv_iter <- c(conv_iter,t)
+      b_iter_c <- c(b_iter_c, backtrack.iter)
+    }
+    
     
     #Create output vector
     sgd.hist   <- rbind(sgd.hist, c(t))
     theta.hist <- rbind(theta.hist, c(theta_vec))
     
-    diff_theta <- max(abs(theta_prior-theta_vec))
+    
   }
   
   output <- list()
   output$theta.final  <- theta_vec
+  output$conv_iter  <- conv_iter
+  output$b_iter_c  <- b_iter_c
   output$iter        <- t - 1
   output$sgd.hist   <- sgd.hist
   output$theta.hist  <- theta.hist
@@ -110,6 +124,7 @@ sgd_opt <- function(data, step, eps2, init, maxit){
   
   return(output)
 }
+
 
 nadam_st <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){  
   
@@ -232,7 +247,7 @@ nadam_st <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
       backtrack.iter = backtrack.iter + 1
       #print(paste(backtrack.iter, "**********"))
       
-      if(backtrack.iter >20000){
+      if(backtrack.iter >10000){
         #print(paste("did not converge"))
         break
       }
@@ -399,7 +414,7 @@ adam_st <- function(data, step, beta1, beta2, eps1, eps2, init, maxit){
       backtrack.iter = backtrack.iter + 1
       #print(paste(backtrack.iter, "**********"))
       
-      if(backtrack.iter >20000){
+      if(backtrack.iter >10000){
         #print(paste("did not converge"))
         break
       }
