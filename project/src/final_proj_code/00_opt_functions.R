@@ -1,3 +1,8 @@
+### 
+### Functions that will later be used to analyze the spambase dataset
+### 
+
+
 obj_fun = function(theta){
   x.b = as.vector(X%*%theta)
   return( -sum(y*x.b - log( 1 + exp(x.b))))  
